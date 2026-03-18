@@ -108,7 +108,7 @@ div[data-testid="stDataFrame"] {{
 
 
 # ── Chart defaults ────────────────────────────────────────────────────────────
-def chart(fig, height=340, legend=False, **kw):
+def chart(fig, height=340, show_legend=False, **kw):
     fig.update_xaxes(gridcolor=BORDER, linecolor=BORDER, tickcolor=BORDER,
                      tickfont=dict(color=TEXT_SEC, size=11))
     fig.update_yaxes(gridcolor=BORDER, linecolor=BORDER, tickcolor=BORDER,
@@ -117,7 +117,7 @@ def chart(fig, height=340, legend=False, **kw):
         plot_bgcolor=SURFACE, paper_bgcolor=T,
         font=dict(family="Inter", color=TEXT_SEC, size=12),
         margin=dict(t=36, b=12, l=12, r=12),
-        showlegend=legend,
+        showlegend=show_legend,
         height=height,
         hoverlabel=dict(bgcolor=SURFACE, font_color=TEXT_PRI,
                         font_family="Inter", bordercolor=BORDER),
@@ -327,7 +327,7 @@ if page == "Overview":
             hovertemplate="<b>%{customdata[0]}</b><br>Rating: %{x}★<br>Facilities: %{y:,}<extra></extra>"
         )
         fig.update_xaxes(tickvals=[1,2,3,4,5])
-        chart(fig, legend=True,
+        chart(fig, show_legend=True,
               legend=dict(orientation="h", y=-0.25, font=dict(size=11)))
         st.plotly_chart(fig, use_container_width=True)
 
@@ -376,7 +376,7 @@ elif page == "Data Analysis":
                                color_discrete_sequence=px.colors.sequential.Blues[1:],
                                labels={sel_feat: LABELS.get(sel_feat, sel_feat),
                                        "overall_rating": "Stars"})
-            chart(fig, legend=True, height=300)
+            chart(fig, show_legend=True, height=300)
         elif split_by == "Ownership Type":
             adf2 = adf.copy()
             adf2["ownership_type"] = adf2["ownership_type"].str.title()
@@ -385,7 +385,7 @@ elif page == "Data Analysis":
                                color_discrete_sequence=[ACCENT, ACCENT2, SUCCESS, WARN],
                                labels={sel_feat: LABELS.get(sel_feat, sel_feat),
                                        "ownership_type": "Ownership"})
-            chart(fig, legend=True, height=300)
+            chart(fig, show_legend=True, height=300)
         else:
             fig = px.histogram(adf, x=sel_feat, nbins=50,
                                marginal="box",
@@ -408,7 +408,7 @@ elif page == "Data Analysis":
             hovertemplate="Rating: %{x}★<br>" + LABELS.get(sel_feat, sel_feat) + ": %{y:.2f}<extra></extra>"
         )
         fig.update_xaxes(tickvals=[1,2,3,4,5])
-        chart(fig, legend=False, height=300)
+        chart(fig, show_legend=False, height=300)
         st.plotly_chart(fig, use_container_width=True)
 
     st.divider()
@@ -562,7 +562,7 @@ elif page == "Model Performance":
         ))
         fig.update_xaxes(title="False Positive Rate")
         fig.update_yaxes(title="True Positive Rate")
-        chart(fig, legend=True,
+        chart(fig, show_legend=True,
               legend=dict(x=0.5, y=0.05, font=dict(size=11)))
         st.plotly_chart(fig, use_container_width=True)
 
@@ -784,7 +784,7 @@ elif page == "Predict Quality":
             fig.update_traces(
                 hovertemplate="%{x}<br>%{data.name}: %{y:.2f}<extra></extra>"
             )
-            chart(fig, legend=True, height=280,
+            chart(fig, show_legend=True, height=280,
                   legend=dict(orientation="h", y=-0.28, font=dict(size=11)))
             st.plotly_chart(fig, use_container_width=True)
 

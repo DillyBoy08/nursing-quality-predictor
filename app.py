@@ -327,8 +327,8 @@ if page == "Overview":
             hovertemplate="<b>%{customdata[0]}</b><br>Rating: %{x}★<br>Facilities: %{y:,}<extra></extra>"
         )
         fig.update_xaxes(tickvals=[1,2,3,4,5])
-        chart(fig, show_legend=True,
-              legend=dict(orientation="h", y=-0.25, font=dict(size=11)))
+        fig.update_layout(legend=dict(orientation="h", y=-0.25, font=dict(size=11)))
+        chart(fig, show_legend=True)
         st.plotly_chart(fig, use_container_width=True)
 
 
@@ -562,8 +562,8 @@ elif page == "Model Performance":
         ))
         fig.update_xaxes(title="False Positive Rate")
         fig.update_yaxes(title="True Positive Rate")
-        chart(fig, show_legend=True,
-              legend=dict(x=0.5, y=0.05, font=dict(size=11)))
+        fig.update_layout(legend=dict(x=0.5, y=0.05, font=dict(size=11)))
+        chart(fig, show_legend=True)
         st.plotly_chart(fig, use_container_width=True)
 
     r3, r4 = st.columns(2)
@@ -629,8 +629,8 @@ elif page == "Model Performance":
                   annotation_font_color=TEXT_SEC, annotation_font_size=11)
     fig.update_xaxes(title="Predicted Probability of High Quality")
     fig.update_yaxes(title="Count")
-    chart(fig, height=300, legend=True,
-          legend=dict(orientation="h", y=-0.25, font=dict(size=11)))
+    fig.update_layout(legend=dict(orientation="h", y=-0.25, font=dict(size=11)))
+    chart(fig, height=300, show_legend=True)
     st.plotly_chart(fig, use_container_width=True)
 
 
@@ -784,8 +784,8 @@ elif page == "Predict Quality":
             fig.update_traces(
                 hovertemplate="%{x}<br>%{data.name}: %{y:.2f}<extra></extra>"
             )
-            chart(fig, show_legend=True, height=280,
-                  legend=dict(orientation="h", y=-0.28, font=dict(size=11)))
+            fig.update_layout(legend=dict(orientation="h", y=-0.28, font=dict(size=11)))
+            chart(fig, show_legend=True, height=280)
             st.plotly_chart(fig, use_container_width=True)
 
         else:

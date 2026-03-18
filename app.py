@@ -1,6 +1,6 @@
 """
 app.py  —  Nursing Home Quality Intelligence Platform
-Light theme · Interactive visualisations
+Light theme · Interactive visualisations · Titled charts
 """
 
 import numpy as np
@@ -21,14 +21,12 @@ from src.model import (
     evaluate_models, get_feature_importance, train_best_model,
 )
 
-# ── Page config ───────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="Nursing Home Quality Intelligence",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
-# ── Design tokens ─────────────────────────────────────────────────────────────
 BG       = "#F8FAFC"
 SURFACE  = "#FFFFFF"
 BORDER   = "#E2E8F0"
@@ -41,82 +39,55 @@ DANGER   = "#EF4444"
 WARN     = "#F59E0B"
 T        = "rgba(0,0,0,0)"
 
-BLUE_SCALE = [ACCENT, "#6366F1", "#8B5CF6", "#A78BFA"]
-
 st.markdown(f"""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 *, html, body, [class*="css"] {{ font-family: 'Inter', sans-serif !important; }}
-
 .stApp {{ background: {BG}; }}
-
-section[data-testid="stSidebar"] {{
-    background: {SURFACE};
-    border-right: 1px solid {BORDER};
-}}
-
-#MainMenu, footer, header, .stDeployButton {{ visibility: hidden; display: none; }}
-
-h1 {{ font-size:1.5rem !important; font-weight:700 !important; color:{TEXT_PRI} !important;
-      margin:0 0 4px 0 !important; letter-spacing:-0.3px; }}
-h2 {{ font-size:1.1rem !important; font-weight:600 !important; color:{TEXT_PRI} !important; margin:0 !important; }}
-h3 {{ font-size:0.95rem !important; font-weight:600 !important; color:{TEXT_PRI} !important; margin:0 !important; }}
+section[data-testid="stSidebar"] {{ background:{SURFACE}; border-right:1px solid {BORDER}; }}
+#MainMenu, footer, header, .stDeployButton {{ visibility:hidden; display:none; }}
+h1 {{ font-size:1.5rem !important; font-weight:700 !important; color:{TEXT_PRI} !important; margin:0 0 4px 0 !important; letter-spacing:-0.3px; }}
 p, li {{ color:{TEXT_SEC} !important; font-size:0.875rem !important; line-height:1.6 !important; }}
-
 div[data-testid="metric-container"] {{
-    background:{SURFACE}; border:1px solid {BORDER};
-    border-top: 3px solid {ACCENT};
-    border-radius:8px; padding:16px 20px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    background:{SURFACE}; border:1px solid {BORDER}; border-top:3px solid {ACCENT};
+    border-radius:8px; padding:16px 20px; box-shadow:0 1px 3px rgba(0,0,0,0.06);
 }}
 div[data-testid="metric-container"] label {{
-    color:{TEXT_SEC} !important; font-size:0.7rem !important;
-    font-weight:600 !important; text-transform:uppercase !important; letter-spacing:0.6px !important;
+    color:{TEXT_SEC} !important; font-size:0.7rem !important; font-weight:600 !important;
+    text-transform:uppercase !important; letter-spacing:0.6px !important;
 }}
 div[data-testid="metric-container"] div[data-testid="stMetricValue"] {{
     color:{TEXT_PRI} !important; font-size:1.6rem !important; font-weight:700 !important;
 }}
-
 div[data-testid="stButton"] button[kind="primary"] {{
-    background:{ACCENT}; border:none; border-radius:6px;
-    font-weight:600; font-size:0.875rem; color:white;
-    box-shadow: 0 1px 2px rgba(59,130,246,0.3);
+    background:{ACCENT}; border:none; border-radius:6px; font-weight:600;
+    font-size:0.875rem; color:white; box-shadow:0 1px 2px rgba(59,130,246,0.3);
 }}
 div[data-testid="stButton"] button[kind="primary"]:hover {{ background:#2563EB; }}
-
-div[data-testid="stSelectbox"] > div, div[data-testid="stMultiSelect"] > div {{
-    border-color:{BORDER} !important; border-radius:6px !important;
-}}
-
 hr {{ border-color:{BORDER} !important; margin:24px 0 !important; }}
-
-div[data-testid="stDataFrame"] {{
-    border:1px solid {BORDER}; border-radius:8px;
-    box-shadow:0 1px 3px rgba(0,0,0,0.04);
-}}
-
-.filter-row {{
-    background:{SURFACE}; border:1px solid {BORDER};
-    border-radius:8px; padding:16px 20px; margin-bottom:20px;
-}}
-.page-eyebrow {{
-    font-size:0.7rem; font-weight:600; color:{ACCENT};
-    text-transform:uppercase; letter-spacing:1px; margin:0 0 4px 0;
-}}
+div[data-testid="stDataFrame"] {{ border:1px solid {BORDER}; border-radius:8px; box-shadow:0 1px 3px rgba(0,0,0,0.04); }}
+.page-eyebrow {{ font-size:0.7rem; font-weight:600; color:{ACCENT}; text-transform:uppercase; letter-spacing:1px; margin:0 0 4px 0; }}
 </style>
 """, unsafe_allow_html=True)
 
 
-# ── Chart defaults ────────────────────────────────────────────────────────────
-def chart(fig, height=340, show_legend=False, **kw):
+# ── Chart helper — applies consistent styling + embeds title in figure ────────
+def chart(fig, title="", subtitle="", height=340, show_legend=False, **kw):
+    """Apply consistent theme and embed title/subtitle inside the Plotly figure."""
+    title_text = f"<b>{title}</b>" if title else ""
+    if subtitle:
+        title_text += f"<br><span style='font-size:11px;font-weight:400;color:{TEXT_SEC}'>{subtitle}</span>"
+
     fig.update_xaxes(gridcolor=BORDER, linecolor=BORDER, tickcolor=BORDER,
                      tickfont=dict(color=TEXT_SEC, size=11))
     fig.update_yaxes(gridcolor=BORDER, linecolor=BORDER, tickcolor=BORDER,
                      tickfont=dict(color=TEXT_SEC, size=11))
     fig.update_layout(
+        title=dict(text=title_text, font=dict(size=13, color=TEXT_PRI, family="Inter"),
+                   x=0, xanchor="left", pad=dict(b=8)),
         plot_bgcolor=SURFACE, paper_bgcolor=T,
         font=dict(family="Inter", color=TEXT_SEC, size=12),
-        margin=dict(t=36, b=12, l=12, r=12),
+        margin=dict(t=56 if title else 20, b=12, l=12, r=12),
         showlegend=show_legend,
         height=height,
         hoverlabel=dict(bgcolor=SURFACE, font_color=TEXT_PRI,
@@ -127,9 +98,9 @@ def chart(fig, height=340, show_legend=False, **kw):
 
 
 # ── Data loaders ──────────────────────────────────────────────────────────────
-@st.cache_data(show_spinner="Loading data...")
+@st.cache_data(show_spinner="Loading CMS data...")
 def load_data():
-    return clean(fetch_cms_data(max_records=8_000))
+    return clean(fetch_cms_data(max_records=15_000))
 
 
 @st.cache_resource(show_spinner="Training models...")
@@ -147,39 +118,33 @@ def get_pipeline():
 
 
 LABELS = {
-    "total_nursing_hrs": "Total Nursing Hrs",
-    "rn_hrs":            "RN Hours",
-    "aide_hrs":          "Aide Hours",
-    "num_beds":          "Certified Beds",
-    "num_residents":     "Avg Residents / Day",
-    "num_deficiencies":  "Health Deficiencies",
-    "overall_rating":    "Overall Rating",
-    "staffing_rating":   "Staffing Rating",
-    "quality_rating":    "Quality Rating",
+    "total_nursing_hrs":        "Total Nursing Hrs",
+    "rn_hrs":                   "RN Hours",
+    "aide_hrs":                 "Aide Hours",
+    "num_beds":                 "Certified Beds",
+    "num_residents":            "Avg Residents / Day",
+    "num_deficiencies":         "Health Deficiencies",
+    "overall_rating":           "Overall Rating",
+    "staffing_rating":          "Staffing Rating",
+    "quality_rating":           "Quality Rating",
     "health_inspection_rating": "Health Inspection Rating",
 }
-
 
 # ── Sidebar ───────────────────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown(f"""
-        <p style="font-size:1rem;font-weight:700;color:{TEXT_PRI};margin:0 0 2px 0;">
-            Nursing Home Quality
-        </p>
-        <p style="font-size:0.72rem;color:{TEXT_SEC};margin:0 0 24px 0;">
-            Quality Intelligence Platform
-        </p>
+        <p style="font-size:1rem;font-weight:700;color:{TEXT_PRI};margin:0 0 2px 0;">Nursing Home Quality</p>
+        <p style="font-size:0.72rem;color:{TEXT_SEC};margin:0 0 24px 0;">Quality Intelligence Platform</p>
     """, unsafe_allow_html=True)
 
     page = st.radio("Navigation",
                     ["Overview", "Data Analysis", "Model Performance", "Predict Quality"],
                     label_visibility="collapsed")
-
     st.divider()
     st.markdown(f"""
         <p style="font-size:0.72rem;color:{TEXT_SEC};line-height:1.9;">
             Data: CMS Nursing Home Compare<br>
-            Facilities: 8,000<br>
+            Facilities: ~14,700 real U.S. nursing homes<br>
             Models: Logistic Regression · Random Forest · XGBoost
         </p>
     """, unsafe_allow_html=True)
@@ -192,109 +157,96 @@ df = load_data()
 # OVERVIEW
 # ══════════════════════════════════════════════════════════════════════════════
 if page == "Overview":
-    st.markdown(f'<p class="page-eyebrow">Dashboard</p>', unsafe_allow_html=True)
+    st.markdown('<p class="page-eyebrow">Dashboard</p>', unsafe_allow_html=True)
     st.title("Nursing Home Quality Overview")
-    st.markdown("U.S. nursing facility quality ratings — staffing, deficiencies, and ownership breakdown.")
+    st.markdown("Real CMS data for U.S. nursing facilities — star ratings, staffing levels, and health deficiencies.")
     st.divider()
 
-    # ── Filters ───────────────────────────────────────────────────────────────
-    with st.container():
-        f1, f2, f3 = st.columns([2, 2, 2])
-        ownership_opts = ["All"] + sorted(df["ownership_type"].dropna().unique().tolist())
-        sel_ownership  = f1.selectbox("Ownership type", ownership_opts)
-        rating_range   = f2.select_slider("Star rating range", options=[1,2,3,4,5], value=(1,5))
-        nursing_range  = f3.slider("Nursing hrs / day range",
-                                   float(df["total_nursing_hrs"].min()),
-                                   float(df["total_nursing_hrs"].max()),
-                                   (float(df["total_nursing_hrs"].min()),
-                                    float(df["total_nursing_hrs"].max())))
+    # Filters
+    f1, f2, f3 = st.columns(3)
+    ownership_opts = ["All"] + sorted(df["ownership_type"].dropna().unique().tolist())
+    sel_own    = f1.selectbox("Ownership type", ownership_opts)
+    rating_rng = f2.select_slider("Star rating range", options=[1,2,3,4,5], value=(1,5))
+    nursing_min = float(df["total_nursing_hrs"].min())
+    nursing_max = float(df["total_nursing_hrs"].max())
+    nursing_rng = f3.slider("Nursing hrs / day", nursing_min, nursing_max,
+                            (nursing_min, nursing_max))
 
     fdf = df.copy()
-    if sel_ownership != "All":
-        fdf = fdf[fdf["ownership_type"] == sel_ownership]
+    if sel_own != "All":
+        fdf = fdf[fdf["ownership_type"] == sel_own]
     fdf = fdf[
-        fdf["overall_rating"].between(rating_range[0], rating_range[1]) &
-        fdf["total_nursing_hrs"].between(nursing_range[0], nursing_range[1])
+        fdf["overall_rating"].between(rating_rng[0], rating_rng[1]) &
+        fdf["total_nursing_hrs"].between(nursing_rng[0], nursing_rng[1])
     ]
-
     st.caption(f"{len(fdf):,} facilities match current filters")
     st.divider()
 
-    # ── KPIs ──────────────────────────────────────────────────────────────────
+    # KPIs
     k1, k2, k3, k4, k5 = st.columns(5)
-    k1.metric("Facilities",         f"{len(fdf):,}")
-    k2.metric("Avg Star Rating",    f"{fdf['overall_rating'].mean():.2f}")
-    k3.metric("Avg Nursing Hrs",    f"{fdf['total_nursing_hrs'].mean():.1f}")
-    k4.metric("High Quality (4-5★)",f"{(fdf['overall_rating'] >= 4).mean():.0%}")
-    k5.metric("Avg Deficiencies",   f"{fdf['num_deficiencies'].mean():.1f}")
-
+    k1.metric("Facilities",          f"{len(fdf):,}")
+    k2.metric("Avg Star Rating",     f"{fdf['overall_rating'].mean():.2f}")
+    k3.metric("Avg Nursing Hrs/Day", f"{fdf['total_nursing_hrs'].mean():.1f}")
+    k4.metric("High Quality (4-5★)", f"{(fdf['overall_rating'] >= 4).mean():.0%}")
+    k5.metric("Avg Deficiencies",    f"{fdf['num_deficiencies'].mean():.1f}")
     st.divider()
 
-    # ── Row 1: Rating distribution + Staffing scatter ────────────────────────
+    # Row 1
     c1, c2 = st.columns(2)
 
     with c1:
-        st.markdown("#### Rating Distribution")
         counts = fdf["overall_rating"].value_counts().sort_index().reset_index()
         counts.columns = ["rating", "count"]
         counts["pct"] = (counts["count"] / len(fdf) * 100).round(1)
-        counts["label"] = counts["pct"].map("{}%".format)
-
         fig = px.bar(counts, x="rating", y="count",
-                     text="label",
+                     text=counts["pct"].map("{}%".format),
                      color="count",
                      color_continuous_scale=[[0,"#DBEAFE"],[1,ACCENT]],
                      custom_data=["pct"],
-                     labels={"rating":"Star Rating","count":"Facilities"})
+                     labels={"rating": "Star Rating", "count": "Facilities"})
         fig.update_traces(
-            textposition="outside",
-            textfont=dict(color=TEXT_SEC, size=11),
+            textposition="outside", textfont=dict(color=TEXT_SEC, size=11),
             hovertemplate="<b>%{x} Stars</b><br>Facilities: %{y:,}<br>Share: %{customdata[0]:.1f}%<extra></extra>",
         )
         fig.update_xaxes(tickvals=[1,2,3,4,5], title="Star Rating")
-        fig.update_yaxes(title="Facilities")
-        chart(fig, coloraxis_showscale=False)
+        fig.update_yaxes(title="Number of Facilities")
+        chart(fig,
+              title="Overall Star Rating Distribution",
+              subtitle="How facilities are distributed across CMS's 1–5 star scale",
+              coloraxis_showscale=False)
         st.plotly_chart(fig, use_container_width=True)
 
     with c2:
-        st.markdown("#### Staffing vs Rating — Scatter")
         fig = px.scatter(
             fdf.sample(min(2000, len(fdf)), random_state=42),
             x="total_nursing_hrs", y="num_deficiencies",
             color="overall_rating",
             color_continuous_scale=px.colors.sequential.Blues,
-            size_max=6, opacity=0.65,
-            hover_data={"overall_rating": True,
-                        "total_nursing_hrs": ":.2f",
-                        "num_deficiencies": True,
-                        "num_beds": True},
-            labels={"total_nursing_hrs": "Nursing Hrs / Day",
+            opacity=0.55,
+            hover_data={"overall_rating": True, "total_nursing_hrs": ":.2f",
+                        "num_deficiencies": True, "num_beds": True},
+            labels={"total_nursing_hrs": "Nursing Hrs / Resident / Day",
                     "num_deficiencies":  "Health Deficiencies",
                     "overall_rating":    "Star Rating"},
         )
         fig.update_traces(
-            hovertemplate=(
-                "<b>%{customdata[0]:.0f} Stars</b><br>"
-                "Nursing hrs: %{x:.2f}<br>"
-                "Deficiencies: %{y}<br>"
-                "Beds: %{customdata[3]}<extra></extra>"
-            )
+            hovertemplate="<b>%{customdata[0]:.0f} Stars</b><br>Nursing hrs: %{x:.2f}<br>Deficiencies: %{y}<br>Beds: %{customdata[3]}<extra></extra>"
         )
-        chart(fig, coloraxis_colorbar=dict(title="Stars", thickness=12, len=0.7))
+        chart(fig,
+              title="Staffing Hours vs Health Deficiencies",
+              subtitle="Each dot is one facility — colour shows star rating",
+              coloraxis_colorbar=dict(title="Stars", thickness=12, len=0.6))
         st.plotly_chart(fig, use_container_width=True)
 
-    # ── Row 2: Deficiencies by rating + ownership ─────────────────────────────
+    # Row 2
     c3, c4 = st.columns(2)
 
     with c3:
-        st.markdown("#### Avg Deficiencies by Rating")
         avg_def = fdf.groupby("overall_rating")["num_deficiencies"].agg(
             mean="mean", std="std", count="count"
         ).reset_index()
         avg_def["se"] = avg_def["std"] / np.sqrt(avg_def["count"])
-
-        fig = go.Figure()
-        fig.add_trace(go.Bar(
+        fig = go.Figure(go.Bar(
             x=avg_def["overall_rating"], y=avg_def["mean"],
             error_y=dict(type="data", array=avg_def["se"], visible=True,
                          color=TEXT_SEC, thickness=1.5),
@@ -304,31 +256,33 @@ if page == "Overview":
             hovertemplate="<b>%{x} Stars</b><br>Avg deficiencies: %{y:.1f}<br>±%{error_y.array:.2f} SE<extra></extra>",
         ))
         fig.update_xaxes(tickvals=[1,2,3,4,5], title="Star Rating")
-        fig.update_yaxes(title="Avg Deficiencies")
-        chart(fig)
+        fig.update_yaxes(title="Avg Health Deficiencies")
+        chart(fig,
+              title="Average Health Deficiencies by Star Rating",
+              subtitle="Error bars show standard error — lower deficiencies correlate with higher ratings")
         st.plotly_chart(fig, use_container_width=True)
 
     with c4:
-        st.markdown("#### Rating Distribution by Ownership")
         own_rating = (
             fdf.groupby(["ownership_type", "overall_rating"])
             .size().reset_index(name="count")
         )
         own_rating["ownership_type"] = own_rating["ownership_type"].str.title()
         fig = px.bar(own_rating, x="overall_rating", y="count",
-                     color="ownership_type",
-                     barmode="group",
+                     color="ownership_type", barmode="group",
                      color_discrete_sequence=[ACCENT, ACCENT2, SUCCESS, WARN],
-                     labels={"overall_rating": "Star Rating",
-                             "count": "Facilities",
+                     labels={"overall_rating": "Star Rating", "count": "Facilities",
                              "ownership_type": "Ownership"},
                      custom_data=["ownership_type"])
         fig.update_traces(
             hovertemplate="<b>%{customdata[0]}</b><br>Rating: %{x}★<br>Facilities: %{y:,}<extra></extra>"
         )
-        fig.update_xaxes(tickvals=[1,2,3,4,5])
+        fig.update_xaxes(tickvals=[1,2,3,4,5], title="Star Rating")
         fig.update_layout(legend=dict(orientation="h", y=-0.25, font=dict(size=11)))
-        chart(fig, show_legend=True)
+        chart(fig,
+              title="Star Rating Distribution by Ownership Type",
+              subtitle="For-profit facilities dominate but differ in quality spread",
+              show_legend=True)
         st.plotly_chart(fig, use_container_width=True)
 
 
@@ -338,35 +292,31 @@ if page == "Overview":
 elif page == "Data Analysis":
     from src.analysis import detect_outliers_iqr, distribution_summary, target_correlation
 
-    st.markdown(f'<p class="page-eyebrow">Statistical Analysis</p>', unsafe_allow_html=True)
+    st.markdown('<p class="page-eyebrow">Statistical Analysis</p>', unsafe_allow_html=True)
     st.title("Data Analysis")
-    st.markdown("Explore distributions, outliers, and feature correlations across 8,000 nursing facility records.")
+    st.markdown("Explore distributions, outliers, and feature correlations across real CMS nursing facility records.")
     st.divider()
 
     NUM_COLS = ["total_nursing_hrs", "rn_hrs", "aide_hrs",
                 "num_beds", "num_residents", "num_deficiencies"]
     present = [c for c in NUM_COLS if c in df.columns]
 
-    # ── Filters ───────────────────────────────────────────────────────────────
     fa, fb = st.columns([2, 3])
-    sel_ratings = fa.multiselect("Filter by star rating",
-                                 [1,2,3,4,5], default=[1,2,3,4,5])
+    sel_ratings = fa.multiselect("Filter by star rating", [1,2,3,4,5], default=[1,2,3,4,5])
     sel_own     = fb.multiselect("Filter by ownership",
                                  df["ownership_type"].dropna().unique().tolist(),
                                  default=df["ownership_type"].dropna().unique().tolist(),
                                  format_func=str.title)
-
-    adf = df[df["overall_rating"].isin(sel_ratings) &
-             df["ownership_type"].isin(sel_own)]
+    adf = df[df["overall_rating"].isin(sel_ratings) & df["ownership_type"].isin(sel_own)]
     st.caption(f"{len(adf):,} facilities in current selection")
     st.divider()
 
-    # ── Distribution explorer ─────────────────────────────────────────────────
-    st.markdown("#### Feature Distribution Explorer")
+    # Distribution explorer
     d_col, d_split = st.columns([2, 1])
-    sel_feat  = d_col.selectbox("Feature", present, format_func=lambda c: LABELS.get(c, c))
-    split_by  = d_split.selectbox("Split by", ["None", "Star Rating", "Ownership Type"])
+    sel_feat = d_col.selectbox("Feature to explore", present, format_func=lambda c: LABELS.get(c, c))
+    split_by = d_split.selectbox("Split by", ["None", "Star Rating", "Ownership Type"])
 
+    feat_label = LABELS.get(sel_feat, sel_feat)
     dh1, dh2 = st.columns(2)
 
     with dh1:
@@ -374,27 +324,30 @@ elif page == "Data Analysis":
             fig = px.histogram(adf, x=sel_feat, color="overall_rating",
                                nbins=40, barmode="overlay", opacity=0.7,
                                color_discrete_sequence=px.colors.sequential.Blues[1:],
-                               labels={sel_feat: LABELS.get(sel_feat, sel_feat),
-                                       "overall_rating": "Stars"})
-            chart(fig, show_legend=True, height=300)
+                               labels={sel_feat: feat_label, "overall_rating": "Stars"})
+            chart(fig, title=f"{feat_label} — Distribution by Star Rating",
+                  subtitle="Overlapping histograms per rating group",
+                  show_legend=True, height=320)
         elif split_by == "Ownership Type":
             adf2 = adf.copy()
             adf2["ownership_type"] = adf2["ownership_type"].str.title()
             fig = px.histogram(adf2, x=sel_feat, color="ownership_type",
                                nbins=40, barmode="overlay", opacity=0.7,
                                color_discrete_sequence=[ACCENT, ACCENT2, SUCCESS, WARN],
-                               labels={sel_feat: LABELS.get(sel_feat, sel_feat),
-                                       "ownership_type": "Ownership"})
-            chart(fig, show_legend=True, height=300)
+                               labels={sel_feat: feat_label, "ownership_type": "Ownership"})
+            chart(fig, title=f"{feat_label} — Distribution by Ownership Type",
+                  subtitle="Overlapping histograms per ownership group",
+                  show_legend=True, height=320)
         else:
-            fig = px.histogram(adf, x=sel_feat, nbins=50,
-                               marginal="box",
+            fig = px.histogram(adf, x=sel_feat, nbins=50, marginal="box",
                                color_discrete_sequence=[ACCENT],
-                               labels={sel_feat: LABELS.get(sel_feat, sel_feat)})
+                               labels={sel_feat: feat_label})
             fig.update_traces(
-                hovertemplate=f"{LABELS.get(sel_feat, sel_feat)}: %{{x:.2f}}<br>Count: %{{y}}<extra></extra>"
+                hovertemplate=f"{feat_label}: %{{x:.2f}}<br>Count: %{{y}}<extra></extra>"
             )
-            chart(fig, height=300)
+            chart(fig, title=f"{feat_label} — Overall Distribution",
+                  subtitle="Histogram with box plot showing median and spread",
+                  height=320)
         st.plotly_chart(fig, use_container_width=True)
 
     with dh2:
@@ -402,84 +355,90 @@ elif page == "Data Analysis":
                         box=True, points="outliers",
                         color="overall_rating",
                         color_discrete_sequence=px.colors.sequential.Blues[1:],
-                        labels={"overall_rating": "Star Rating",
-                                sel_feat: LABELS.get(sel_feat, sel_feat)})
+                        labels={"overall_rating": "Star Rating", sel_feat: feat_label})
         fig.update_traces(
-            hovertemplate="Rating: %{x}★<br>" + LABELS.get(sel_feat, sel_feat) + ": %{y:.2f}<extra></extra>"
+            hovertemplate=f"Rating: %{{x}}★<br>{feat_label}: %{{y:.2f}}<extra></extra>"
         )
         fig.update_xaxes(tickvals=[1,2,3,4,5])
-        chart(fig, show_legend=False, height=300)
+        chart(fig, title=f"{feat_label} — Spread by Star Rating",
+              subtitle="Violin shows full distribution shape; box shows median and IQR",
+              show_legend=False, height=320)
         st.plotly_chart(fig, use_container_width=True)
 
     st.divider()
 
-    # ── Scatter matrix ────────────────────────────────────────────────────────
+    # Scatter matrix
     st.markdown("#### Feature Relationships — Scatter Matrix")
     sm_cols = st.multiselect(
-        "Select features (2–5)",
+        "Select 2–5 features to compare",
         present, default=["total_nursing_hrs", "rn_hrs", "num_deficiencies"],
         format_func=lambda c: LABELS.get(c, c),
     )
     if len(sm_cols) >= 2:
         fig = px.scatter_matrix(
             adf.sample(min(1500, len(adf)), random_state=0),
-            dimensions=sm_cols,
-            color="overall_rating",
+            dimensions=sm_cols, color="overall_rating",
             color_continuous_scale=px.colors.sequential.Blues,
-            labels=LABELS,
-            opacity=0.5,
+            labels=LABELS, opacity=0.5,
+            title="<b>Scatter Matrix — Pairwise Feature Relationships</b><br>"
+                  "<span style='font-size:11px;font-weight:400;color:#64748B'>"
+                  "Each panel shows the relationship between two features, coloured by star rating</span>",
         )
-        fig.update_traces(diagonal_visible=False,
-                          marker=dict(size=3),
-                          hovertemplate=None)
-        fig.update_layout(paper_bgcolor=T, plot_bgcolor=SURFACE,
-                          font_color=TEXT_SEC, height=520,
-                          coloraxis_colorbar=dict(title="Stars", thickness=12))
+        fig.update_traces(diagonal_visible=False, marker=dict(size=3))
+        fig.update_layout(
+            paper_bgcolor=T, plot_bgcolor=SURFACE, font_color=TEXT_SEC,
+            height=520, coloraxis_colorbar=dict(title="Stars", thickness=12),
+            title_font=dict(size=13, color=TEXT_PRI, family="Inter"),
+            margin=dict(t=72, b=12, l=12, r=12),
+        )
         st.plotly_chart(fig, use_container_width=True)
     else:
-        st.info("Select at least 2 features.")
+        st.info("Select at least 2 features to display the scatter matrix.")
 
     st.divider()
 
-    # ── Correlation heatmap ───────────────────────────────────────────────────
-    st.markdown("#### Correlation Heatmap")
+    # Correlation heatmap
     corr = adf.select_dtypes(include=np.number).corr().round(2)
     corr.index   = [LABELS.get(c, c.replace("_"," ").title()) for c in corr.index]
     corr.columns = [LABELS.get(c, c.replace("_"," ").title()) for c in corr.columns]
-    fig = px.imshow(corr, text_auto=True,
-                    color_continuous_scale="RdBu_r",
+    fig = px.imshow(corr, text_auto=True, color_continuous_scale="RdBu_r",
                     zmin=-1, zmax=1, aspect="auto")
-    fig.update_traces(
-        hovertemplate="%{x} × %{y}<br>Correlation: %{z:.2f}<extra></extra>"
+    fig.update_traces(hovertemplate="%{x} × %{y}<br>Correlation: %{z:.2f}<extra></extra>")
+    fig.update_layout(
+        title=dict(
+            text="<b>Feature Correlation Matrix</b><br>"
+                 "<span style='font-size:11px;font-weight:400;color:#64748B'>"
+                 "Pearson correlation coefficients — red = negative, blue = positive</span>",
+            font=dict(size=13, color=TEXT_PRI, family="Inter"), x=0, xanchor="left",
+        ),
+        paper_bgcolor=T, font_color=TEXT_SEC, height=480,
+        margin=dict(t=72, b=12, l=12, r=12),
     )
-    fig.update_layout(paper_bgcolor=T, font_color=TEXT_SEC, height=460,
-                      margin=dict(t=16, b=8, l=8, r=8))
     st.plotly_chart(fig, use_container_width=True)
 
     st.divider()
 
-    # ── Outlier summary ───────────────────────────────────────────────────────
-    st.markdown("#### Outlier Detection — IQR Method")
+    # Outlier chart
     outlier_flags = detect_outliers_iqr(adf, cols=present)
     pcts = {LABELS.get(c, c): outlier_flags[c].mean() * 100
             for c in present if c in outlier_flags}
-
     fig = go.Figure(go.Bar(
         x=list(pcts.values()), y=list(pcts.keys()),
         orientation="h",
-        marker=dict(
-            color=list(pcts.values()),
-            colorscale=[[0,"#FEF3C7"],[0.5,WARN],[1,DANGER]],
-            showscale=True,
-            colorbar=dict(title="%", thickness=12, len=0.7),
-        ),
+        marker=dict(color=list(pcts.values()),
+                    colorscale=[[0,"#FEF3C7"],[0.5,WARN],[1,DANGER]],
+                    showscale=True,
+                    colorbar=dict(title="%", thickness=12, len=0.7)),
         text=[f"{v:.1f}%" for v in pcts.values()],
         textposition="outside",
         hovertemplate="%{y}<br>Outlier rate: %{x:.1f}%<extra></extra>",
     ))
-    fig.update_xaxes(title="% Records Flagged")
+    fig.update_xaxes(title="% of Records Flagged as Outlier")
     fig.update_yaxes(autorange="reversed")
-    chart(fig, height=300)
+    chart(fig,
+          title="Outlier Prevalence by Feature — IQR Method",
+          subtitle="Values beyond Q1 − 1.5×IQR or Q3 + 1.5×IQR are flagged",
+          height=300)
     st.plotly_chart(fig, use_container_width=True)
 
     st.divider()
@@ -495,9 +454,9 @@ elif page == "Data Analysis":
 # MODEL PERFORMANCE
 # ══════════════════════════════════════════════════════════════════════════════
 elif page == "Model Performance":
-    st.markdown(f'<p class="page-eyebrow">Machine Learning</p>', unsafe_allow_html=True)
+    st.markdown('<p class="page-eyebrow">Machine Learning</p>', unsafe_allow_html=True)
     st.title("Model Performance")
-    st.markdown("Binary classification — High quality (4-5★) vs Low quality (1-2★). Evaluated with stratified 5-fold cross-validation.")
+    st.markdown("Binary classification — **High quality (4-5★)** vs **Low quality (1-2★)**. Three-star facilities excluded. Stratified 5-fold cross-validation.")
     st.divider()
 
     p = get_pipeline()
@@ -509,13 +468,11 @@ elif page == "Model Performance":
     m2.metric("F1-Macro",       f"{f1_score(p['y_test'], p['y_pred'], average='macro'):.3f}")
     m3.metric("ROC-AUC",        f"{roc_auc:.3f}")
     m4.metric("Precision",      f"{precision_score(p['y_test'], p['y_pred'], average='macro'):.3f}")
-
     st.divider()
 
     r1, r2 = st.columns(2)
 
     with r1:
-        st.markdown("#### Cross-Validation F1-Macro")
         cv_df = pd.DataFrame(list(p["cv_results"].items()), columns=["Model", "F1"])
         cv_df = cv_df.sort_values("F1", ascending=False)
         fig = px.bar(cv_df, x="Model", y="F1",
@@ -524,16 +481,18 @@ elif page == "Model Performance":
                      text=cv_df["F1"].map("{:.4f}".format),
                      range_y=[0.85, 0.92],
                      labels={"F1": "F1-Macro Score"})
-        fig.update_traces(textposition="outside", textfont=dict(color=TEXT_SEC, size=11),
-                          hovertemplate="<b>%{x}</b><br>F1-Macro: %{y:.4f}<extra></extra>")
-        fig.update_yaxes(title="F1-Macro")
-        chart(fig, legend=False)
+        fig.update_traces(
+            textposition="outside", textfont=dict(color=TEXT_SEC, size=11),
+            hovertemplate="<b>%{x}</b><br>F1-Macro: %{y:.4f}<extra></extra>",
+        )
+        fig.update_yaxes(title="F1-Macro Score")
+        chart(fig,
+              title="Model Comparison — 5-Fold Cross-Validation F1-Macro",
+              subtitle="Higher is better. All three models compared on the same data split.",
+              show_legend=False)
         st.plotly_chart(fig, use_container_width=True)
 
     with r2:
-        st.markdown("#### ROC Curve")
-        # Annotate at useful threshold points
-        roc_df = pd.DataFrame({"fpr": fpr, "tpr": tpr, "threshold": thresholds})
         fig = go.Figure()
         fig.add_trace(go.Scatter(
             x=fpr, y=tpr, mode="lines",
@@ -547,14 +506,13 @@ elif page == "Model Performance":
             line=dict(color=BORDER, dash="dash", width=1.5),
             showlegend=False, hoverinfo="skip",
         ))
-        # Mark the optimal threshold (closest to top-left)
         dist = np.sqrt((fpr**2) + ((1-tpr)**2))
         opt_idx = np.argmin(dist)
         fig.add_trace(go.Scatter(
             x=[fpr[opt_idx]], y=[tpr[opt_idx]],
             mode="markers+text",
-            marker=dict(color=DANGER, size=9, symbol="circle"),
-            text=[f"  Optimal threshold<br>  ({thresholds[opt_idx]:.2f})"],
+            marker=dict(color=DANGER, size=9),
+            text=[f"  Optimal threshold ({thresholds[opt_idx]:.2f})"],
             textposition="middle right",
             textfont=dict(size=10, color=TEXT_SEC),
             showlegend=False,
@@ -563,34 +521,40 @@ elif page == "Model Performance":
         fig.update_xaxes(title="False Positive Rate")
         fig.update_yaxes(title="True Positive Rate")
         fig.update_layout(legend=dict(x=0.5, y=0.05, font=dict(size=11)))
-        chart(fig, show_legend=True)
+        chart(fig,
+              title="ROC Curve — Receiver Operating Characteristic",
+              subtitle=f"AUC = {roc_auc:.3f} — the closer to 1.0, the better the model separates the classes",
+              show_legend=True)
         st.plotly_chart(fig, use_container_width=True)
 
     r3, r4 = st.columns(2)
 
     with r3:
-        st.markdown("#### Confusion Matrix")
         cm = confusion_matrix(p["y_test"], p["y_pred"])
-        total = cm.sum()
-        pct   = (cm / total * 100).round(1)
+        pct = (cm / cm.sum() * 100).round(1)
         labels_cm = [[f"{cm[i][j]:,}<br>({pct[i][j]:.1f}%)" for j in range(2)] for i in range(2)]
         fig = go.Figure(go.Heatmap(
             z=cm,
-            x=["Predicted Low", "Predicted High"],
-            y=["Actual Low", "Actual High"],
-            text=labels_cm,
-            texttemplate="%{text}",
+            x=["Predicted Low Quality", "Predicted High Quality"],
+            y=["Actual Low Quality", "Actual High Quality"],
+            text=labels_cm, texttemplate="%{text}",
             colorscale=[[0,"#EFF6FF"],[1,ACCENT]],
             showscale=False,
             hovertemplate="Actual: %{y}<br>Predicted: %{x}<br>Count: %{z:,}<extra></extra>",
         ))
-        fig.update_layout(paper_bgcolor=T, plot_bgcolor=SURFACE,
-                          font_color=TEXT_SEC, height=340,
-                          margin=dict(t=36,b=12,l=12,r=12))
+        fig.update_layout(
+            title=dict(
+                text="<b>Confusion Matrix</b><br>"
+                     "<span style='font-size:11px;font-weight:400;color:#64748B'>"
+                     "Counts and percentages on held-out test set</span>",
+                font=dict(size=13, color=TEXT_PRI, family="Inter"), x=0, xanchor="left",
+            ),
+            paper_bgcolor=T, plot_bgcolor=SURFACE, font_color=TEXT_SEC,
+            height=340, margin=dict(t=72, b=12, l=12, r=12),
+        )
         st.plotly_chart(fig, use_container_width=True)
 
     with r4:
-        st.markdown("#### Feature Importances")
         if not p["importances"].empty:
             imp = p["importances"].reset_index()
             imp.columns = ["Feature", "Importance"]
@@ -599,38 +563,38 @@ elif page == "Model Performance":
             fig = go.Figure(go.Bar(
                 x=imp["Importance"], y=imp["Feature"],
                 orientation="h",
-                marker=dict(
-                    color=imp["Importance"],
-                    colorscale=[[0,"#DBEAFE"],[1,ACCENT]],
-                    showscale=False,
-                ),
+                marker=dict(color=imp["Importance"],
+                            colorscale=[[0,"#DBEAFE"],[1,ACCENT]],
+                            showscale=False),
                 hovertemplate="%{y}<br>Importance: %{x:.4f}<extra></extra>",
             ))
-            chart(fig, height=340)
+            chart(fig,
+                  title="Feature Importances — Best Model",
+                  subtitle="Which inputs had the most influence on predictions",
+                  height=340)
             st.plotly_chart(fig, use_container_width=True)
 
     st.divider()
 
-    # ── Prediction probability distribution ───────────────────────────────────
-    st.markdown("#### Predicted Probability Distribution")
-    st.markdown("How confidently the model separates high-quality from low-quality facilities.")
     prob_df = pd.DataFrame({
         "Probability of High Quality": p["y_proba"],
-        "Actual":  p["y_test"].map({0: "Low Quality", 1: "High Quality"}),
+        "Actual": p["y_test"].map({0: "Low Quality", 1: "High Quality"}),
     })
     fig = px.histogram(prob_df, x="Probability of High Quality",
                        color="Actual", nbins=50, barmode="overlay", opacity=0.75,
                        color_discrete_map={"High Quality": SUCCESS, "Low Quality": DANGER})
-    fig.update_traces(
-        hovertemplate="Probability: %{x:.2f}<br>Count: %{y}<extra></extra>"
-    )
+    fig.update_traces(hovertemplate="Probability: %{x:.2f}<br>Count: %{y}<extra></extra>")
     fig.add_vline(x=0.5, line_dash="dash", line_color=TEXT_SEC, line_width=1.5,
-                  annotation_text="Decision boundary", annotation_position="top right",
+                  annotation_text="Decision boundary (0.5)",
+                  annotation_position="top right",
                   annotation_font_color=TEXT_SEC, annotation_font_size=11)
     fig.update_xaxes(title="Predicted Probability of High Quality")
-    fig.update_yaxes(title="Count")
+    fig.update_yaxes(title="Number of Facilities")
     fig.update_layout(legend=dict(orientation="h", y=-0.25, font=dict(size=11)))
-    chart(fig, height=300, show_legend=True)
+    chart(fig,
+          title="Predicted Probability Distribution",
+          subtitle="Well-separated peaks indicate the model distinguishes the two classes confidently",
+          show_legend=True, height=320)
     st.plotly_chart(fig, use_container_width=True)
 
 
@@ -638,7 +602,7 @@ elif page == "Model Performance":
 # PREDICT QUALITY
 # ══════════════════════════════════════════════════════════════════════════════
 elif page == "Predict Quality":
-    st.markdown(f'<p class="page-eyebrow">Live Prediction</p>', unsafe_allow_html=True)
+    st.markdown('<p class="page-eyebrow">Live Prediction</p>', unsafe_allow_html=True)
     st.title("Predict Facility Quality Rating")
     st.markdown("Configure a facility's parameters to get an instant quality prediction from the trained model.")
     st.divider()
@@ -661,7 +625,7 @@ elif page == "Predict Quality":
         aide_hrs  = st.slider("Aide Hours",          0.3, 7.0, 2.8, 0.1)
 
         st.markdown("#### Facility Details")
-        fc1, fc2  = st.columns(2)
+        fc1, fc2      = st.columns(2)
         num_beds      = fc1.number_input("Certified Beds",     20, 500, 150, 10)
         num_residents = fc2.number_input("Avg Residents / Day",10, 500, 120, 10)
         num_defic     = st.number_input("Health Deficiencies",  0,  60,   8,  1)
@@ -701,35 +665,25 @@ elif page == "Predict Quality":
             <div style="background:{bg};border:1px solid {color};border-radius:8px;
                         padding:20px 24px;margin-bottom:16px;">
                 <p style="font-size:0.7rem;font-weight:600;color:{TEXT_SEC};
-                           text-transform:uppercase;letter-spacing:1px;margin:0 0 6px 0;">
-                    Predicted Rating
-                </p>
-                <p style="font-size:1.5rem;font-weight:700;color:{color};margin:0 0 4px 0;">
-                    {label}
-                </p>
-                <p style="font-size:0.8rem;color:{TEXT_SEC};margin:0;">
-                    Model confidence: {conf:.1%}
-                </p>
+                           text-transform:uppercase;letter-spacing:1px;margin:0 0 6px 0;">Predicted Rating</p>
+                <p style="font-size:1.5rem;font-weight:700;color:{color};margin:0 0 4px 0;">{label}</p>
+                <p style="font-size:0.8rem;color:{TEXT_SEC};margin:0;">Model confidence: {conf:.1%}</p>
             </div>
             """, unsafe_allow_html=True)
 
-            # Gauge
             fig = go.Figure(go.Indicator(
                 mode="gauge+number",
                 value=round(proba * 100, 1),
                 number={"suffix": "%", "font": {"size": 36, "color": color, "family": "Inter"}},
-                title={"text": "Probability of High Quality",
+                title={"text": "Probability of High Quality Rating",
                        "font": {"size": 12, "color": TEXT_SEC, "family": "Inter"}},
                 gauge={
                     "axis": {"range": [0,100], "ticksuffix": "%",
                              "tickcolor": BORDER, "tickfont": {"color": TEXT_SEC, "size": 10}},
                     "bar":  {"color": color, "thickness": 0.25},
-                    "bgcolor": BG,
-                    "bordercolor": BORDER,
-                    "steps": [
-                        {"range": [0,  50], "color": "#FEF2F2"},
-                        {"range": [50, 100], "color": "#F0FDF4"},
-                    ],
+                    "bgcolor": BG, "bordercolor": BORDER,
+                    "steps": [{"range": [0,50], "color": "#FEF2F2"},
+                               {"range": [50,100], "color": "#F0FDF4"}],
                     "threshold": {"line": {"color": TEXT_PRI, "width": 2},
                                   "thickness": 0.75, "value": 50},
                 },
@@ -739,53 +693,47 @@ elif page == "Predict Quality":
                               margin=dict(t=40, b=0, l=16, r=16))
             st.plotly_chart(fig, use_container_width=True)
 
-            # Feature contributions
             clf = model.named_steps["clf"] if hasattr(model, "named_steps") else model
             if hasattr(clf, "coef_"):
-                st.markdown("#### What drove this prediction?")
                 coefs    = pd.Series(clf.coef_[0], index=feature_cols)
                 contribs = (coefs * input_df.iloc[0]).sort_values()
                 cdf = contribs.reset_index()
                 cdf.columns = ["Feature", "Contribution"]
                 cdf["Feature"] = cdf["Feature"].str.replace("_", " ").str.title()
                 cdf["color"]   = cdf["Contribution"].apply(lambda x: SUCCESS if x >= 0 else DANGER)
-
                 fig = go.Figure(go.Bar(
                     x=cdf["Contribution"], y=cdf["Feature"],
-                    orientation="h",
-                    marker_color=cdf["color"],
+                    orientation="h", marker_color=cdf["color"],
                     text=cdf["Contribution"].map("{:+.3f}".format),
                     textposition="outside",
                     textfont=dict(color=TEXT_SEC, size=10),
                     hovertemplate="%{y}<br>Contribution: %{x:+.3f}<extra></extra>",
                 ))
                 fig.add_vline(x=0, line_color=BORDER, line_width=1.5)
-                chart(fig, height=300, margin=dict(t=8, b=8, l=8, r=56))
+                chart(fig,
+                      title="Feature Contributions to This Prediction",
+                      subtitle="Blue = pushed toward High Quality  |  Red = pushed toward Low Quality",
+                      height=320, margin=dict(t=64, b=8, l=8, r=56))
                 st.plotly_chart(fig, use_container_width=True)
 
-            # ── Comparison to dataset average ─────────────────────────────────
-            st.markdown("#### How does this facility compare?")
             compare_cols = ["total_nursing_hrs", "rn_hrs", "aide_hrs", "num_deficiencies"]
             means = df[compare_cols].mean()
             this  = input_df.iloc[0]
-
             comp_df = pd.DataFrame({
-                "Feature":  [LABELS.get(c, c) for c in compare_cols],
-                "This facility": [this.get(c, np.nan) for c in compare_cols],
-                "Dataset average": [means[c] for c in compare_cols],
+                "Feature":        [LABELS.get(c, c) for c in compare_cols],
+                "This Facility":  [this.get(c, np.nan) for c in compare_cols],
+                "Dataset Average":[means[c] for c in compare_cols],
             }).melt(id_vars="Feature", var_name="Group", value_name="Value")
-
             fig = px.bar(comp_df, x="Feature", y="Value", color="Group",
                          barmode="group",
-                         color_discrete_map={"This facility": color,
-                                             "Dataset average": "#94A3B8"},
-                         labels={"Value": "Value", "Feature": ""},
-                         )
-            fig.update_traces(
-                hovertemplate="%{x}<br>%{data.name}: %{y:.2f}<extra></extra>"
-            )
+                         color_discrete_map={"This Facility": color, "Dataset Average": "#94A3B8"},
+                         labels={"Value": "Value", "Feature": ""})
+            fig.update_traces(hovertemplate="%{x}<br>%{data.name}: %{y:.2f}<extra></extra>")
             fig.update_layout(legend=dict(orientation="h", y=-0.28, font=dict(size=11)))
-            chart(fig, show_legend=True, height=280)
+            chart(fig,
+                  title="This Facility vs Dataset Average",
+                  subtitle="How the entered values compare to the average across all 14,700 real facilities",
+                  show_legend=True, height=300)
             st.plotly_chart(fig, use_container_width=True)
 
         else:

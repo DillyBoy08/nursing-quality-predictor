@@ -1,9 +1,14 @@
 """
 ingestion.py
 ------------
-Pulls nursing home provider data from the CMS (Centers for Medicare & Medicaid
-Services) public Socrata API. Falls back to a NumPy-generated synthetic dataset
-if the API is unavailable, ensuring the pipeline can always run end-to-end.
+Downloads real nursing home provider data from the CMS (Centers for Medicare
+& Medicaid Services) public dataset via direct CSV download.
+
+Data source
+-----------
+CMS Nursing Home Compare — Provider Information
+Updated monthly. ~15,000 U.S. nursing facilities.
+https://data.cms.gov/provider-data/dataset/4pq5-n9py
 """
 
 import logging
@@ -14,141 +19,105 @@ import requests
 
 logger = logging.getLogger(__name__)
 
-# CMS Provider Information dataset (Nursing Home Compare)
-CMS_API_URL = "https://data.cms.gov/resource/4pq5-n9py.json"
-BATCH_SIZE = 5_000
+# Direct CSV download — real CMS Nursing Home Compare data (updated monthly)
+CMS_CSV_URL = (
+    "https://data.cms.gov/provider-data/api/1/datastore/query/"
+    "4pq5-n9py/0/download?format=csv"
+)
 
-# Map CMS column names -> standardised internal names used throughout pipeline
+# Real CMS column names -> standardised internal names
 CMS_COLUMN_MAP = {
-    "overall_rating": "overall_rating",
-    "staffing_rating": "staffing_rating",
-    "quality_rating": "quality_rating",
-    "health_inspection_rating": "health_inspection_rating",
-    "number_of_certified_beds": "num_beds",
-    "average_number_of_residents_per_day": "num_residents",
-    "total_nursing_hours_per_resident_per_day": "total_nursing_hrs",
-    "reported_rn_hours_per_resident_per_day": "rn_hrs",
-    "reported_total_nurse_aide_hours_per_resident_per_day": "aide_hrs",
-    "ownership_type": "ownership_type",
-    "total_number_of_health_deficiencies": "num_deficiencies",
+    "Overall Rating":                                        "overall_rating",
+    "Staffing Rating":                                       "staffing_rating",
+    "QM Rating":                                             "quality_rating",
+    "Health Inspection Rating":                              "health_inspection_rating",
+    "Number of Certified Beds":                              "num_beds",
+    "Average Number of Residents per Day":                   "num_residents",
+    "Reported Total Nurse Staffing Hours per Resident per Day": "total_nursing_hrs",
+    "Reported RN Staffing Hours per Resident per Day":       "rn_hrs",
+    "Reported Nurse Aide Staffing Hours per Resident per Day": "aide_hrs",
+    "Ownership Type":                                        "ownership_type",
+    "Rating Cycle 1 Total Number of Health Deficiencies":    "num_deficiencies",
 }
 
 
 def fetch_cms_data(max_records: int = 15_000) -> pd.DataFrame:
     """
-    Fetch nursing home provider records from the CMS Socrata API.
+    Download the CMS Nursing Home Provider Information dataset as CSV.
+
+    Returns real data for ~15,000 U.S. nursing facilities including
+    star ratings, staffing hours, deficiency counts, and ownership type.
+    Falls back to synthetic data only if the download fails.
 
     Parameters
     ----------
     max_records : int
-        Maximum number of rows to retrieve (API is paginated via $limit/$offset).
+        Cap on rows returned (the full dataset is ~15,000 facilities).
 
     Returns
     -------
     pd.DataFrame
-        Raw provider data with standardised column names.
+        Provider data with standardised internal column names.
     """
-    records = []
-    offset = 0
+    logger.info("Downloading CMS Nursing Home Provider data (real dataset)...")
 
-    logger.info("Fetching data from CMS API...")
+    try:
+        response = requests.get(CMS_CSV_URL, timeout=60)
+        response.raise_for_status()
 
-    while offset < max_records:
-        batch_limit = min(BATCH_SIZE, max_records - offset)
-        params = {"$limit": batch_limit, "$offset": offset}
+        from io import StringIO
+        df = pd.read_csv(StringIO(response.text), low_memory=False)
 
-        try:
-            response = requests.get(CMS_API_URL, params=params, timeout=30)
-            response.raise_for_status()
-            batch = response.json()
+        # Keep only the columns we need
+        available = {k: v for k, v in CMS_COLUMN_MAP.items() if k in df.columns}
+        df = df[list(available.keys())].rename(columns=available)
+        df = df.head(max_records)
+        df["data_source"] = "cms_real"
 
-            if not batch:
-                break
-
-            records.extend(batch)
-            offset += len(batch)
-            logger.info(f"  Retrieved {len(records):,} records...")
-
-            if len(batch) < batch_limit:
-                break
-
-        except requests.RequestException as exc:
-            logger.warning(f"API request failed at offset {offset}: {exc}")
-            break
-
-    if records:
-        df = pd.DataFrame(records)
-        df = df.rename(columns={k: v for k, v in CMS_COLUMN_MAP.items() if k in df.columns})
-        df["data_source"] = "cms_api"
-        logger.info(f"CMS API returned {len(df):,} rows.")
+        logger.info(f"Real CMS data loaded: {len(df):,} facilities.")
         return df
 
-    logger.warning("CMS API unavailable — generating synthetic dataset.")
-    return _generate_synthetic_data()
+    except requests.RequestException as exc:
+        logger.warning(f"CMS download failed: {exc}")
+        logger.warning("Falling back to synthetic dataset.")
+        return _generate_synthetic_data()
 
 
 def _generate_synthetic_data(n: int = 8_000, seed: int = 42) -> pd.DataFrame:
     """
-    Generate a realistic synthetic nursing home dataset using NumPy.
-
-    A latent quality factor drives correlated star ratings and staffing metrics,
-    mirroring the structure found in real CMS data.
-
-    Parameters
-    ----------
-    n    : int   Number of synthetic facilities to generate.
-    seed : int   RNG seed for reproducibility.
-
-    Returns
-    -------
-    pd.DataFrame
-        Synthetic dataset with the same schema as CMS data.
+    Fallback: generate synthetic nursing home data using NumPy.
+    Only used if the CMS download is unavailable.
     """
     rng = np.random.default_rng(seed)
-
-    # Latent quality score — higher = better facility
     quality = rng.normal(0, 1, n)
 
-    def _star_rating(factor: np.ndarray, noise: float = 0.6) -> np.ndarray:
-        """Convert a continuous factor to a 1–5 integer star rating."""
+    def _star_rating(factor, noise=0.6):
         raw = factor + rng.normal(0, noise, n)
         return np.clip(np.round(np.interp(raw, [-2.5, 2.5], [1, 5])).astype(int), 1, 5)
 
-    overall_rating       = _star_rating(quality)
-    staffing_rating      = _star_rating(quality)
-    quality_rating       = _star_rating(quality)
-    health_inspection    = _star_rating(-quality)  # more deficiencies → lower inspection score
-
     num_beds      = rng.integers(20, 350, n)
-    occupancy     = rng.beta(8, 2, n)               # most facilities run near capacity
+    occupancy     = rng.beta(8, 2, n)
     num_residents = np.round(num_beds * occupancy).astype(float)
-
-    total_nursing_hrs = np.clip(rng.normal(3.8, 0.9, n) + quality * 0.4, 1.2, 9.0)
-    rn_hrs            = np.clip(total_nursing_hrs * rng.beta(2, 6, n), 0.1, 4.0)
-    aide_hrs          = np.clip(total_nursing_hrs - rn_hrs + rng.normal(0, 0.3, n), 0.3, 7.0)
-
-    ownership_type = rng.choice(
-        ["For profit - Corporation", "Non profit - Corporation", "Government - State/County"],
-        n,
-        p=[0.65, 0.25, 0.10],
-    )
-
-    # Deficiencies negatively correlated with quality
-    num_deficiencies = np.clip(
-        rng.poisson(8, n) - (quality * 2.5).astype(int), 0, 60
-    )
+    total_nursing = np.clip(rng.normal(3.8, 0.9, n) + quality * 0.4, 1.2, 9.0)
+    rn_hrs        = np.clip(total_nursing * rng.beta(2, 6, n), 0.1, 4.0)
+    aide_hrs      = np.clip(total_nursing - rn_hrs + rng.normal(0, 0.3, n), 0.3, 7.0)
 
     return pd.DataFrame({
-        "overall_rating":        overall_rating,
-        "staffing_rating":       staffing_rating,
-        "quality_rating":        quality_rating,
-        "health_inspection_rating": health_inspection,
-        "num_beds":              num_beds,
-        "num_residents":         num_residents,
-        "total_nursing_hrs":     total_nursing_hrs,
-        "rn_hrs":                rn_hrs,
-        "aide_hrs":              aide_hrs,
-        "ownership_type":        ownership_type,
-        "num_deficiencies":      num_deficiencies,
-        "data_source":           "synthetic",
+        "overall_rating":           _star_rating(quality),
+        "staffing_rating":          _star_rating(quality),
+        "quality_rating":           _star_rating(quality),
+        "health_inspection_rating": _star_rating(-quality),
+        "num_beds":                 num_beds,
+        "num_residents":            num_residents,
+        "total_nursing_hrs":        total_nursing,
+        "rn_hrs":                   rn_hrs,
+        "aide_hrs":                 aide_hrs,
+        "ownership_type":           rng.choice(
+            ["For profit - Corporation", "Non profit - Corporation",
+             "Government - State/County"], n, p=[0.65, 0.25, 0.10]
+        ),
+        "num_deficiencies":         np.clip(
+            rng.poisson(8, n) - (quality * 2.5).astype(int), 0, 60
+        ),
+        "data_source": "synthetic",
     })

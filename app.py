@@ -24,7 +24,7 @@ from src.model import (
 st.set_page_config(
     page_title="Nursing Home Quality Intelligence",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="collapsed",
 )
 
 BG       = "#F8FAFC"
@@ -130,33 +130,26 @@ LABELS = {
     "health_inspection_rating": "Health Inspection Rating",
 }
 
-# ── Sidebar ───────────────────────────────────────────────────────────────────
-with st.sidebar:
-    st.markdown(f"""
-        <p style="font-size:1rem;font-weight:700;color:{TEXT_PRI};margin:0 0 2px 0;">Nursing Home Quality</p>
-        <p style="font-size:0.72rem;color:{TEXT_SEC};margin:0 0 24px 0;">Quality Intelligence Platform</p>
-    """, unsafe_allow_html=True)
-
-    page = st.radio("Navigation",
-                    ["Overview", "Data Analysis", "Model Performance", "Predict Quality", "Raw Data"],
-                    label_visibility="collapsed")
-    st.divider()
-    st.markdown(f"""
-        <p style="font-size:0.72rem;color:{TEXT_SEC};line-height:1.9;">
-            Data: CMS Nursing Home Compare<br>
-            Facilities: ~14,700 real U.S. nursing homes<br>
-            Models: Logistic Regression · Random Forest · XGBoost
-        </p>
-    """, unsafe_allow_html=True)
-
-
 df = load_data()
 
+st.markdown(f"""
+    <p style="font-size:1.6rem;font-weight:700;color:{TEXT_PRI};margin:8px 0 2px 0;">
+        Nursing Home Quality Intelligence
+    </p>
+    <p style="font-size:0.85rem;color:{TEXT_SEC};margin:0 0 20px 0;">
+        Real CMS data for ~14,700 U.S. nursing facilities &nbsp;·&nbsp;
+        Logistic Regression, Random Forest, XGBoost
+    </p>
+""", unsafe_allow_html=True)
+
+tab_overview, tab_analysis, tab_model, tab_predict, tab_data = st.tabs([
+    "Overview", "Data Analysis", "Model Performance", "Predict Quality", "Raw Data"
+])
 
 # ══════════════════════════════════════════════════════════════════════════════
 # OVERVIEW
 # ══════════════════════════════════════════════════════════════════════════════
-if page == "Overview":
+with tab_overview:
     st.markdown('<p class="page-eyebrow">Dashboard</p>', unsafe_allow_html=True)
     st.title("Nursing Home Quality Overview")
     st.markdown("Real CMS data for U.S. nursing facilities covering star ratings, staffing levels, and health deficiencies.")
@@ -181,7 +174,7 @@ if page == "Overview":
     ]
     c_info, c_link = st.columns([3, 1])
     c_info.caption(f"{len(fdf):,} facilities match current filters")
-    c_link.caption("To browse every individual record, open **Raw Data** in the left sidebar.")
+    c_link.caption("To browse individual records, open the **Raw Data** tab above.")
     st.divider()
 
     # KPIs
@@ -295,7 +288,7 @@ if page == "Overview":
 # ══════════════════════════════════════════════════════════════════════════════
 # DATA ANALYSIS
 # ══════════════════════════════════════════════════════════════════════════════
-elif page == "Data Analysis":
+with tab_analysis:
     from src.analysis import detect_outliers_iqr, distribution_summary, target_correlation
 
     st.markdown('<p class="page-eyebrow">Statistical Analysis</p>', unsafe_allow_html=True)
@@ -465,7 +458,7 @@ elif page == "Data Analysis":
 # ══════════════════════════════════════════════════════════════════════════════
 # MODEL PERFORMANCE
 # ══════════════════════════════════════════════════════════════════════════════
-elif page == "Model Performance":
+with tab_model:
     st.markdown('<p class="page-eyebrow">Machine Learning</p>', unsafe_allow_html=True)
     st.title("Model Performance")
     st.markdown("Binary classification: **High quality (4-5 stars)** vs **Low quality (1-2 stars)**. Three-star facilities excluded. Stratified 5-fold cross-validation.")
@@ -618,7 +611,7 @@ elif page == "Model Performance":
 # ══════════════════════════════════════════════════════════════════════════════
 # PREDICT QUALITY
 # ══════════════════════════════════════════════════════════════════════════════
-elif page == "Predict Quality":
+with tab_predict:
     st.markdown('<p class="page-eyebrow">Live Prediction</p>', unsafe_allow_html=True)
     st.title("Predict Facility Quality Rating")
     st.markdown("Configure a facility's parameters to get an instant quality prediction from the trained model."
@@ -769,7 +762,7 @@ elif page == "Predict Quality":
 # ══════════════════════════════════════════════════════════════════════════════
 # RAW DATA
 # ══════════════════════════════════════════════════════════════════════════════
-elif page == "Raw Data":
+with tab_data:
     st.markdown('<p class="page-eyebrow">Data Source</p>', unsafe_allow_html=True)
     st.title("Raw CMS Nursing Home Data")
     st.markdown(

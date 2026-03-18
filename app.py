@@ -177,6 +177,10 @@ with tab_overview:
     c_link.caption("To browse individual records, open the **Raw Data** tab above.")
     st.divider()
 
+    if len(fdf) == 0:
+        st.warning("No facilities match the current filters. Adjust the controls above to see data.")
+        st.stop()
+
     # KPIs
     k1, k2, k3, k4, k5 = st.columns(5)
     k1.metric("Facilities",          f"{len(fdf):,}")
@@ -243,11 +247,12 @@ with tab_overview:
             mean="mean", std="std", count="count"
         ).reset_index()
         avg_def["se"] = avg_def["std"] / np.sqrt(avg_def["count"])
+        _rating_colors = {1: DANGER, 2: WARN, 3: "#94A3B8", 4: SUCCESS, 5: "#059669"}
         fig = go.Figure(go.Bar(
             x=avg_def["overall_rating"], y=avg_def["mean"],
             error_y=dict(type="data", array=avg_def["se"], visible=True,
                          color=TEXT_SEC, thickness=1.5),
-            marker_color=[DANGER, WARN, "#94A3B8", SUCCESS, "#059669"],
+            marker_color=[_rating_colors.get(r, ACCENT) for r in avg_def["overall_rating"]],
             text=avg_def["mean"].map("{:.1f}".format),
             textposition="outside",
             hovertemplate="<b>%{x} Stars</b><br>Avg deficiencies: %{y:.1f}<br>±%{error_y.array:.2f} SE<extra></extra>",
@@ -310,6 +315,10 @@ with tab_analysis:
     adf = df[df["overall_rating"].isin(sel_ratings) & df["ownership_type"].isin(sel_own)]
     st.caption(f"{len(adf):,} facilities in current selection")
     st.divider()
+
+    if len(adf) == 0:
+        st.warning("No facilities match the current filters. Adjust the selections above.")
+        st.stop()
 
     # Distribution explorer
     d_col, d_split = st.columns([2, 1])
@@ -480,11 +489,12 @@ with tab_model:
     with r1:
         cv_df = pd.DataFrame(list(p["cv_results"].items()), columns=["Model", "F1"])
         cv_df = cv_df.sort_values("F1", ascending=False)
+        _f1_min = max(0.0, cv_df["F1"].min() - 0.05)
         fig = px.bar(cv_df, x="Model", y="F1",
                      color="Model",
                      color_discrete_sequence=[ACCENT, ACCENT2, SUCCESS],
                      text=cv_df["F1"].map("{:.4f}".format),
-                     range_y=[0.85, 0.92],
+                     range_y=[_f1_min, 1.0],
                      labels={"F1": "F1-Macro Score"})
         fig.update_traces(
             textposition="outside", textfont=dict(color=TEXT_SEC, size=11),

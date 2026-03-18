@@ -79,7 +79,6 @@ MODELS = {
         learning_rate=0.05,
         max_depth=5,
         scale_pos_weight=1,        # adjusted below after computing class ratio
-        use_label_encoder=False,
         eval_metric="logloss",
         random_state=42,
         verbosity=0,

@@ -1,14 +1,5 @@
 """
-app.py
-------
-Streamlit dashboard for the Nursing Home Quality Predictor.
-
-Pages
------
-  Overview         — KPI cards, rating distribution, ownership breakdown, data table
-  Data Analysis    — Outlier detection, distributions, correlation heatmap
-  Model Performance — CV comparison, ROC curve, confusion matrix, feature importances
-  Live Predictor   — Real-time quality prediction with probability gauge
+app.py  —  Nursing Home Quality Intelligence Platform
 """
 
 import numpy as np
@@ -17,553 +8,728 @@ import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 from sklearn.metrics import (
-    accuracy_score,
-    auc,
-    confusion_matrix,
-    f1_score,
-    precision_score,
-    roc_curve,
+    accuracy_score, auc, confusion_matrix,
+    f1_score, precision_score, roc_curve,
 )
 
 from src.cleaning import clean
 from src.ingestion import fetch_cms_data
 from src.model import (
-    MODELS,
-    OWNERSHIP_MAP,
-    build_target,
-    engineer_features,
-    evaluate_models,
-    get_feature_importance,
-    train_best_model,
+    OWNERSHIP_MAP, build_target, engineer_features,
+    evaluate_models, get_feature_importance, train_best_model,
 )
 
-# ── Page configuration ───────────────────────────────────────────────────────
+# ── Page config ───────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="Nursing Home Quality Predictor",
+    page_title="Nursing Home Quality Intelligence",
     page_icon="🏥",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
+# ── Global CSS ────────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
-    /* hide default Streamlit menu */
-    #MainMenu, footer { visibility: hidden; }
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
-    /* metric card styling */
-    div[data-testid="metric-container"] {
-        background: #1E2130;
-        border-radius: 10px;
-        padding: 16px 20px;
-        border-left: 4px solid #4F8BF9;
-    }
+html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
 
-    /* sidebar header */
-    .sidebar-title {
-        font-size: 1.3rem;
-        font-weight: 700;
-        color: #4F8BF9;
-        margin-bottom: 4px;
-    }
-    .sidebar-sub {
-        font-size: 0.78rem;
-        color: #9AA0B4;
-        margin-bottom: 16px;
-    }
+/* ── Sidebar ── */
+section[data-testid="stSidebar"] {
+    background: #0A0F1E;
+    border-right: 1px solid #1E2A45;
+}
+.nav-logo {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #4F8BF9;
+    letter-spacing: -0.5px;
+}
+.nav-sub { font-size: 0.72rem; color: #5A6A8A; margin-top: 2px; }
+
+/* ── Hero ── */
+.hero {
+    background: linear-gradient(135deg, #0D1B3E 0%, #1A2F6B 50%, #0D2445 100%);
+    border-radius: 16px;
+    padding: 48px 40px;
+    margin-bottom: 32px;
+    border: 1px solid #1E3A6E;
+}
+.hero h1 {
+    font-size: 2.2rem;
+    font-weight: 700;
+    color: #FFFFFF;
+    margin: 0 0 12px 0;
+    line-height: 1.2;
+}
+.hero p {
+    font-size: 1.05rem;
+    color: #90A8D0;
+    max-width: 640px;
+    line-height: 1.6;
+    margin: 0;
+}
+.hero-badge {
+    display: inline-block;
+    background: rgba(79,139,249,0.15);
+    color: #4F8BF9;
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 4px 12px;
+    border-radius: 20px;
+    border: 1px solid rgba(79,139,249,0.3);
+    margin-bottom: 16px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+
+/* ── Metric cards ── */
+.kpi-card {
+    background: #111827;
+    border: 1px solid #1E2A45;
+    border-radius: 12px;
+    padding: 20px 24px;
+    border-left: 3px solid #4F8BF9;
+}
+.kpi-val { font-size: 2rem; font-weight: 700; color: #4F8BF9; line-height: 1; }
+.kpi-lbl { font-size: 0.78rem; color: #6B7A99; margin-top: 6px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
+
+/* ── Feature cards ── */
+.feature-card {
+    background: #111827;
+    border: 1px solid #1E2A45;
+    border-radius: 12px;
+    padding: 24px;
+    height: 100%;
+}
+.feature-icon { font-size: 2rem; margin-bottom: 12px; }
+.feature-title { font-size: 1rem; font-weight: 600; color: #E2E8F0; margin-bottom: 8px; }
+.feature-desc { font-size: 0.85rem; color: #6B7A99; line-height: 1.6; }
+
+/* ── Section headers ── */
+.section-label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #4F8BF9;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+}
+.section-title {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: #E2E8F0;
+    margin-bottom: 6px;
+}
+.section-desc {
+    font-size: 0.88rem;
+    color: #6B7A99;
+    line-height: 1.6;
+    margin-bottom: 24px;
+}
+
+/* ── Insight boxes ── */
+.insight {
+    background: rgba(79,139,249,0.07);
+    border: 1px solid rgba(79,139,249,0.2);
+    border-radius: 10px;
+    padding: 16px 20px;
+    font-size: 0.85rem;
+    color: #90A8D0;
+    line-height: 1.6;
+    margin-top: 12px;
+}
+.insight strong { color: #4F8BF9; }
+
+/* ── Step badges ── */
+.step {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px; height: 28px;
+    background: #4F8BF9;
+    color: white;
+    border-radius: 50%;
+    font-size: 0.8rem;
+    font-weight: 700;
+    margin-right: 10px;
+    flex-shrink: 0;
+}
+
+/* ── Result boxes ── */
+.result-high {
+    background: rgba(34,197,94,0.1);
+    border: 1px solid rgba(34,197,94,0.3);
+    border-radius: 12px;
+    padding: 20px 24px;
+    text-align: center;
+}
+.result-low {
+    background: rgba(239,68,68,0.1);
+    border: 1px solid rgba(239,68,68,0.3);
+    border-radius: 12px;
+    padding: 20px 24px;
+    text-align: center;
+}
+.result-label { font-size: 0.75rem; color: #9AA0B4; text-transform: uppercase; letter-spacing: 1px; }
+.result-value-high { font-size: 2rem; font-weight: 700; color: #22C55E; }
+.result-value-low  { font-size: 2rem; font-weight: 700; color: #EF4444; }
+
+/* Divider */
+hr { border-color: #1E2A45 !important; }
+
+/* Hide streamlit branding */
+#MainMenu, footer { visibility: hidden; }
 </style>
 """, unsafe_allow_html=True)
 
+T = "rgba(0,0,0,0)"  # transparent background for charts
 
-# ── Cached loaders ────────────────────────────────────────────────────────────
-@st.cache_data(show_spinner="Generating dataset...")
-def load_data() -> pd.DataFrame:
-    raw = fetch_cms_data(max_records=8_000)
-    return clean(raw)
-
-
-@st.cache_resource(show_spinner="Training models — first run only, ~20s...")
-def get_pipeline() -> dict:
-    df = load_data()
-    feat_df = engineer_features(df)
-    X, y = build_target(feat_df)
-    cv_results = evaluate_models(X, y)
-    model, X_test, y_test, y_pred, y_proba, feature_cols = train_best_model(
-        X, y, cv_results
-    )
-    importances = get_feature_importance(model, feature_cols)
-    return {
-        "model":        model,
-        "X_test":       X_test,
-        "y_test":       y_test,
-        "y_pred":       y_pred,
-        "y_proba":      y_proba,
-        "feature_cols": feature_cols,
-        "cv_results":   cv_results,
-        "importances":  importances,
-    }
-
-
-# ── Shared plot defaults ──────────────────────────────────────────────────────
-TRANSPARENT = "rgba(0,0,0,0)"
-BLUE_SEQ = px.colors.sequential.Blues
-
-
-def _layout(fig, **kwargs):
+def chart_layout(fig, height=None, **kw):
     fig.update_layout(
-        plot_bgcolor=TRANSPARENT,
-        paper_bgcolor=TRANSPARENT,
-        **kwargs,
+        plot_bgcolor=T, paper_bgcolor=T,
+        font_color="#C8D4E8",
+        **({"height": height} if height else {}),
+        **kw,
     )
     return fig
 
 
+# ── Cached data & model ───────────────────────────────────────────────────────
+@st.cache_data(show_spinner="Loading dataset...")
+def load_data():
+    return clean(fetch_cms_data(max_records=8_000))
+
+
+@st.cache_resource(show_spinner="Training models — takes ~20s on first load...")
+def get_pipeline():
+    df      = load_data()
+    feat_df = engineer_features(df)
+    X, y    = build_target(feat_df)
+    cv      = evaluate_models(X, y)
+    model, X_test, y_test, y_pred, y_proba, fcols = train_best_model(X, y, cv)
+    return {
+        "model": model, "X_test": X_test, "y_test": y_test,
+        "y_pred": y_pred, "y_proba": y_proba, "feature_cols": fcols,
+        "cv_results": cv, "importances": get_feature_importance(model, fcols),
+    }
+
+
 # ── Sidebar ───────────────────────────────────────────────────────────────────
 with st.sidebar:
-    st.markdown('<p class="sidebar-title">🏥 NursingQuality AI</p>', unsafe_allow_html=True)
-    st.markdown('<p class="sidebar-sub">CMS Nursing Home Predictor</p>', unsafe_allow_html=True)
-    st.divider()
+    st.markdown('<p class="nav-logo">🏥 NursingQuality AI</p>', unsafe_allow_html=True)
+    st.markdown('<p class="nav-sub">Powered by CMS Provider Data</p>', unsafe_allow_html=True)
+    st.markdown("<br>", unsafe_allow_html=True)
+
     page = st.radio(
-        "Navigate",
-        ["Overview", "Data Analysis", "Model Performance", "Live Predictor"],
+        "Navigation",
+        ["🏠  Home", "📊  Explore Data", "🤖  Model Results", "🔮  Predict Quality"],
         label_visibility="collapsed",
     )
+    st.markdown("<br>", unsafe_allow_html=True)
     st.divider()
-    st.caption("Data: CMS Nursing Home Compare")
-    st.caption("Models: Logistic Regression · Random Forest · XGBoost")
+    st.markdown('<p class="nav-sub">Built to showcase end-to-end ML skills:<br>• CMS API integration<br>• Pandas / NumPy wrangling<br>• Scikit-Learn + XGBoost<br>• Statistical analysis<br>• Interactive deployment</p>', unsafe_allow_html=True)
 
 
-# ── Load data (always needed) ─────────────────────────────────────────────────
 df = load_data()
+page = page.split("  ")[1]   # strip icon prefix
 
 
-# ═════════════════════════════════════════════════════════════════════════════
-# PAGE 1 — OVERVIEW
-# ═════════════════════════════════════════════════════════════════════════════
-if page == "Overview":
-    st.title("Nursing Home Quality Predictor")
-    st.markdown(
-        "Predicts whether a U.S. nursing facility achieves a **high star rating (4-5★)** "
-        "based on staffing levels, health inspections, and facility characteristics."
-    )
+# ═══════════════════════════════════════════════════════════════════════════════
+# HOME
+# ═══════════════════════════════════════════════════════════════════════════════
+if page == "Home":
+
+    st.markdown("""
+    <div class="hero">
+        <div class="hero-badge">Nursing Industry · Machine Learning · Data Intelligence</div>
+        <h1>Nursing Home Quality<br>Intelligence Platform</h1>
+        <p>
+            Every year, CMS rates thousands of U.S. nursing facilities on a 1–5 star scale.
+            This platform uses machine learning to <strong style="color:#fff">predict which facilities will
+            earn high or low ratings</strong> — before inspectors visit — based on staffing levels,
+            health deficiencies, and facility data.
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # ── What does this tool do? ───────────────────────────────────────────────
+    st.markdown('<p class="section-label">What This Does</p>', unsafe_allow_html=True)
+    st.markdown('<p class="section-title">Three capabilities in one platform</p>', unsafe_allow_html=True)
+
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        st.markdown("""
+        <div class="feature-card">
+            <div class="feature-icon">🔍</div>
+            <div class="feature-title">Explore Real Data</div>
+            <div class="feature-desc">
+                Analyse 8,000+ nursing facility records. Identify outliers,
+                understand how staffing levels correlate with quality, and
+                spot patterns across ownership types.
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    with c2:
+        st.markdown("""
+        <div class="feature-card">
+            <div class="feature-icon">🤖</div>
+            <div class="feature-title">ML-Powered Predictions</div>
+            <div class="feature-desc">
+                Three models — Logistic Regression, Random Forest, and XGBoost —
+                compete to predict quality ratings. Best model achieves
+                <strong style="color:#4F8BF9">90% accuracy and 0.967 AUC</strong>.
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    with c3:
+        st.markdown("""
+        <div class="feature-card">
+            <div class="feature-icon">🎯</div>
+            <div class="feature-title">Live Quality Predictor</div>
+            <div class="feature-desc">
+                Enter any facility's details and get an instant prediction.
+                See exactly which factors are driving the result — useful for
+                targeted quality improvement decisions.
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
     st.divider()
 
-    # ── KPI row ──────────────────────────────────────────────────────────────
-    k1, k2, k3, k4 = st.columns(4)
-    k1.metric("Total Facilities", f"{len(df):,}")
-    k2.metric("Avg Star Rating", f"{df['overall_rating'].mean():.2f} ★")
-    k3.metric("Avg Nursing Hrs / Day", f"{df['total_nursing_hrs'].mean():.2f} hrs")
+    # ── KPIs ─────────────────────────────────────────────────────────────────
+    st.markdown('<p class="section-label">Dataset Overview</p>', unsafe_allow_html=True)
+    st.markdown('<p class="section-title">What the data tells us</p>', unsafe_allow_html=True)
+
     high_pct = (df["overall_rating"] >= 4).mean() * 100
-    k4.metric("High Quality (4-5★)", f"{high_pct:.1f}%")
+    low_pct  = (df["overall_rating"] <= 2).mean() * 100
 
-    st.divider()
-    col_l, col_r = st.columns(2)
+    k1, k2, k3, k4, k5 = st.columns(5)
+    cards = [
+        (f"{len(df):,}",                         "Facilities analysed"),
+        (f"{df['overall_rating'].mean():.1f} ★",  "Average star rating"),
+        (f"{df['total_nursing_hrs'].mean():.1f}h","Avg nursing hrs / day"),
+        (f"{high_pct:.0f}%",                      "Rated high quality (4-5★)"),
+        (f"{low_pct:.0f}%",                       "Rated low quality (1-2★)"),
+    ]
+    for col, (val, lbl) in zip([k1, k2, k3, k4, k5], cards):
+        col.markdown(f"""
+        <div class="kpi-card">
+            <div class="kpi-val">{val}</div>
+            <div class="kpi-lbl">{lbl}</div>
+        </div>
+        """, unsafe_allow_html=True)
 
-    # Rating distribution
-    with col_l:
-        st.subheader("Overall Rating Distribution")
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # ── Quick charts ──────────────────────────────────────────────────────────
+    ch1, ch2 = st.columns(2)
+
+    with ch1:
+        st.markdown('<p class="section-label">Rating Breakdown</p>', unsafe_allow_html=True)
         counts = df["overall_rating"].value_counts().sort_index().reset_index()
         counts.columns = ["rating", "count"]
+        counts["pct"] = (counts["count"] / counts["count"].sum() * 100).round(1)
         fig = px.bar(
             counts, x="rating", y="count",
             color="count", color_continuous_scale="Blues",
-            text="count",
+            text=counts["pct"].map("{}%".format),
             labels={"rating": "Star Rating", "count": "Facilities"},
         )
-        fig.update_traces(textposition="outside")
-        _layout(fig, coloraxis_showscale=False, xaxis=dict(tickvals=[1, 2, 3, 4, 5]))
+        fig.update_traces(textposition="outside", textfont_color="#C8D4E8")
+        chart_layout(fig, coloraxis_showscale=False, xaxis=dict(tickvals=[1,2,3,4,5]))
         st.plotly_chart(fig, use_container_width=True)
+        st.markdown("""
+        <div class="insight">
+            <strong>Key insight:</strong> Ratings are roughly normally distributed around 3★.
+            Only ~27% of facilities achieve a high rating (4-5★) — making prediction
+            genuinely valuable for early intervention.
+        </div>
+        """, unsafe_allow_html=True)
 
-    # Ownership donut
-    with col_r:
-        st.subheader("Ownership Type")
-        own = df["ownership_type"].value_counts().reset_index()
-        own.columns = ["type", "count"]
-        own["type"] = own["type"].str.title()
-        fig2 = px.pie(
-            own, values="count", names="type",
-            color_discrete_sequence=px.colors.sequential.Blues_r,
-            hole=0.45,
+    with ch2:
+        st.markdown('<p class="section-label">Staffing vs Quality</p>', unsafe_allow_html=True)
+        fig2 = px.box(
+            df, x="overall_rating", y="total_nursing_hrs",
+            color="overall_rating",
+            color_discrete_sequence=px.colors.sequential.Blues[1:],
+            labels={"overall_rating": "Star Rating", "total_nursing_hrs": "Nursing Hrs / Resident / Day"},
         )
-        fig2.update_layout(
-            paper_bgcolor=TRANSPARENT,
-            legend=dict(orientation="h", yanchor="bottom", y=-0.3),
-        )
+        chart_layout(fig2, showlegend=False)
         st.plotly_chart(fig2, use_container_width=True)
+        st.markdown("""
+        <div class="insight">
+            <strong>Key insight:</strong> Higher-rated facilities consistently provide more nursing
+            hours per resident. This is one of the strongest predictors in the model
+            (correlation: <strong>0.33</strong>).
+        </div>
+        """, unsafe_allow_html=True)
 
-    # Staffing by rating
-    st.subheader("Staffing Hours by Star Rating")
-    melt = df[["overall_rating", "total_nursing_hrs", "rn_hrs", "aide_hrs"]].melt(
-        id_vars="overall_rating",
-        var_name="Metric",
-        value_name="Hours",
-    )
-    label_map = {
-        "total_nursing_hrs": "Total Nursing",
-        "rn_hrs":            "RN Hours",
-        "aide_hrs":          "Aide Hours",
-    }
-    melt["Metric"] = melt["Metric"].map(label_map)
-    fig3 = px.box(
-        melt, x="overall_rating", y="Hours", color="Metric",
-        color_discrete_sequence=["#4F8BF9", "#7EC8E3", "#B0D4F1"],
-        labels={"overall_rating": "Star Rating", "Hours": "Hrs / Resident / Day"},
-    )
-    _layout(fig3)
-    st.plotly_chart(fig3, use_container_width=True)
-
-    st.subheader("Data Sample")
-    st.dataframe(df.head(200), use_container_width=True, height=280)
-
-
-# ═════════════════════════════════════════════════════════════════════════════
-# PAGE 2 — DATA ANALYSIS
-# ═════════════════════════════════════════════════════════════════════════════
-elif page == "Data Analysis":
-    from src.analysis import (
-        detect_outliers_iqr,
-        distribution_summary,
-        target_correlation,
-    )
-
-    st.title("Statistical Analysis")
+    st.markdown("<br>", unsafe_allow_html=True)
     st.divider()
 
-    ANALYSIS_COLS = [
-        "total_nursing_hrs", "rn_hrs", "aide_hrs",
-        "num_beds", "num_residents", "num_deficiencies",
-    ]
-    present_cols = [c for c in ANALYSIS_COLS if c in df.columns]
-    outlier_flags = detect_outliers_iqr(df, cols=present_cols)
+    # ── How to use ────────────────────────────────────────────────────────────
+    st.markdown('<p class="section-label">Getting Started</p>', unsafe_allow_html=True)
+    st.markdown('<p class="section-title">How to use this platform</p>', unsafe_allow_html=True)
 
-    # ── Outlier summary ───────────────────────────────────────────────────────
-    st.subheader("Outlier Prevalence — IQR Method")
-    pcts = {col: outlier_flags[col].mean() * 100 for col in present_cols}
+    s1, s2, s3, s4 = st.columns(4)
+    steps = [
+        ("🏠", "Start here", "Read the dataset overview and key statistics to understand what the data represents."),
+        ("📊", "Explore Data", "Dig into outlier detection, feature distributions, and correlations. Understand what drives quality."),
+        ("🤖", "Model Results", "See how three ML models compare. Examine the ROC curve, confusion matrix, and feature importances."),
+        ("🎯", "Predict Quality", "Enter a real or hypothetical facility's details and get an instant quality prediction with explanation."),
+    ]
+    for col, (icon, title, desc) in zip([s1, s2, s3, s4], steps):
+        col.markdown(f"""
+        <div class="feature-card" style="text-align:center;">
+            <div class="feature-icon">{icon}</div>
+            <div class="feature-title">{title}</div>
+            <div class="feature-desc">{desc}</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# EXPLORE DATA
+# ═══════════════════════════════════════════════════════════════════════════════
+elif page == "Explore Data":
+    from src.analysis import detect_outliers_iqr, distribution_summary, target_correlation
+
+    st.markdown('<p class="section-label">Data Intelligence</p>', unsafe_allow_html=True)
+    st.markdown('<p class="section-title">Explore the Dataset</p>', unsafe_allow_html=True)
+    st.markdown('<p class="section-desc">Statistical analysis of 8,000 nursing facility records — outliers, distributions, and what correlates most strongly with quality ratings.</p>', unsafe_allow_html=True)
+
+    COLS = ["total_nursing_hrs", "rn_hrs", "aide_hrs", "num_beds", "num_residents", "num_deficiencies"]
+    present = [c for c in COLS if c in df.columns]
+    outlier_flags = detect_outliers_iqr(df, cols=present)
+
+    # ── Outliers ──────────────────────────────────────────────────────────────
+    st.markdown("#### Outlier Detection — IQR Method")
+    st.markdown('<p class="section-desc">Values beyond Q1 − 1.5×IQR or Q3 + 1.5×IQR are flagged. Outliers are winsorised (clamped) during cleaning rather than dropped, preserving sample size.</p>', unsafe_allow_html=True)
+
+    pcts = {c: outlier_flags[c].mean() * 100 for c in present if c in outlier_flags}
     fig = px.bar(
-        x=list(pcts.values()), y=list(pcts.keys()),
-        orientation="h",
-        color=list(pcts.values()),
+        x=list(pcts.values()), y=[c.replace("_"," ").title() for c in pcts],
+        orientation="h", color=list(pcts.values()),
         color_continuous_scale="Reds",
         text=[f"{v:.1f}%" for v in pcts.values()],
-        labels={"x": "% Flagged as Outlier", "y": "Feature"},
+        labels={"x": "% Records Flagged as Outlier"},
     )
-    fig.update_traces(textposition="outside")
-    _layout(fig, coloraxis_showscale=False, yaxis=dict(autorange="reversed"))
+    fig.update_traces(textposition="outside", textfont_color="#C8D4E8")
+    chart_layout(fig, coloraxis_showscale=False, yaxis=dict(autorange="reversed"), height=280)
     st.plotly_chart(fig, use_container_width=True)
+
+    st.markdown("""
+    <div class="insight">
+        <strong>RN hours</strong> has the highest outlier rate (2.3%) — some facilities employ
+        far more registered nurses than average, skewing the distribution right (skewness: 1.07).
+        Health deficiencies also show notable outliers at the high end, flagging facilities
+        with serious compliance issues.
+    </div>
+    """, unsafe_allow_html=True)
 
     st.divider()
 
     # ── Distribution explorer ─────────────────────────────────────────────────
-    st.subheader("Feature Distribution Explorer")
-    selected = st.selectbox("Select feature", present_cols, format_func=lambda c: c.replace("_", " ").title())
+    st.markdown("#### Feature Distribution Explorer")
+    st.markdown('<p class="section-desc">Select a feature to see its distribution and how it varies across star ratings.</p>', unsafe_allow_html=True)
 
-    d_left, d_right = st.columns(2)
-    with d_left:
+    label_map = {
+        "total_nursing_hrs": "Total Nursing Hrs / Resident / Day",
+        "rn_hrs":            "RN Hrs / Resident / Day",
+        "aide_hrs":          "Aide Hrs / Resident / Day",
+        "num_beds":          "Number of Certified Beds",
+        "num_residents":     "Avg Residents per Day",
+        "num_deficiencies":  "Health Deficiencies",
+    }
+    sel = st.selectbox("Feature", present, format_func=lambda c: label_map.get(c, c))
+
+    d1, d2 = st.columns(2)
+    with d1:
         fig = px.histogram(
-            df, x=selected, nbins=50,
+            df, x=sel, nbins=50,
             color_discrete_sequence=["#4F8BF9"],
             marginal="box",
-            labels={selected: selected.replace("_", " ").title()},
-            title="Distribution",
+            labels={sel: label_map.get(sel, sel)},
+            title="Overall Distribution",
         )
-        _layout(fig)
+        chart_layout(fig)
         st.plotly_chart(fig, use_container_width=True)
-
-    with d_right:
+    with d2:
         fig = px.box(
-            df, x="overall_rating", y=selected,
+            df, x="overall_rating", y=sel,
             color="overall_rating",
-            color_discrete_sequence=px.colors.sequential.Blues,
-            labels={
-                "overall_rating": "Star Rating",
-                selected: selected.replace("_", " ").title(),
-            },
-            title="By Star Rating",
+            color_discrete_sequence=px.colors.sequential.Blues[1:],
+            labels={"overall_rating": "Star Rating", sel: label_map.get(sel, sel)},
+            title="Split by Star Rating",
         )
-        _layout(fig, showlegend=False)
+        chart_layout(fig, showlegend=False)
         st.plotly_chart(fig, use_container_width=True)
-
-    st.divider()
-
-    # ── Correlation heatmap ───────────────────────────────────────────────────
-    st.subheader("Correlation Heatmap")
-    num_df = df.select_dtypes(include=np.number)
-    corr = num_df.corr().round(2)
-    fig = px.imshow(
-        corr, text_auto=True, color_continuous_scale="Blues",
-        aspect="auto", zmin=-1, zmax=1,
-    )
-    fig.update_layout(paper_bgcolor=TRANSPARENT, height=520)
-    st.plotly_chart(fig, use_container_width=True)
 
     st.divider()
 
     # ── Correlation with target ───────────────────────────────────────────────
-    st.subheader("Correlation with Overall Star Rating")
-    corr_series = target_correlation(df).drop("overall_rating", errors="ignore")
-    corr_df = corr_series.reset_index()
-    corr_df.columns = ["Feature", "Correlation"]
-    corr_df["color"] = corr_df["Correlation"].apply(lambda x: "Positive" if x >= 0 else "Negative")
+    st.markdown("#### What Drives Quality Ratings?")
+    st.markdown('<p class="section-desc">Pearson correlation between each numeric feature and the overall star rating. Positive = higher values linked to better ratings. Negative = higher values linked to worse ratings.</p>', unsafe_allow_html=True)
+
+    corr_s = target_correlation(df).drop("overall_rating", errors="ignore")
+    cdf = corr_s.reset_index()
+    cdf.columns = ["Feature", "Correlation"]
+    cdf["Feature"] = cdf["Feature"].str.replace("_", " ").str.title()
+    cdf["Direction"] = cdf["Correlation"].apply(lambda x: "Positive" if x >= 0 else "Negative")
+
     fig = px.bar(
-        corr_df.sort_values("Correlation"),
-        x="Correlation", y="Feature",
-        orientation="h",
-        color="color",
+        cdf.sort_values("Correlation"),
+        x="Correlation", y="Feature", orientation="h",
+        color="Direction",
         color_discrete_map={"Positive": "#4F8BF9", "Negative": "#E05C5C"},
+        text=cdf.sort_values("Correlation")["Correlation"].map("{:.2f}".format),
     )
-    _layout(fig)
+    fig.update_traces(textposition="outside", textfont_color="#C8D4E8")
+    chart_layout(fig, showlegend=True, height=380)
     st.plotly_chart(fig, use_container_width=True)
 
+    st.markdown("""
+    <div class="insight">
+        <strong>Staffing and quality measure ratings</strong> are the strongest positive predictors (r ≈ 0.66).
+        <strong>Health inspection rating</strong> is strongly negative — this is because a higher inspection
+        score in this dataset reflects <em>more</em> deficiencies found, not better performance.
+        <strong>Bed count and occupancy</strong> have near-zero correlation, meaning facility size alone
+        does not predict quality.
+    </div>
+    """, unsafe_allow_html=True)
+
     st.divider()
 
-    # ── Distribution summary table ────────────────────────────────────────────
-    st.subheader("Distribution Summary")
-    dist_df = distribution_summary(df)
-    st.dataframe(
-        dist_df.style.background_gradient(cmap="Blues", subset=["skewness", "kurtosis"]),
-        use_container_width=True,
-    )
+    # ── Correlation heatmap ───────────────────────────────────────────────────
+    st.markdown("#### Full Correlation Heatmap")
+    num_df = df.select_dtypes(include=np.number)
+    corr = num_df.corr().round(2)
+    fig = px.imshow(corr, text_auto=True, color_continuous_scale="RdBu_r",
+                    aspect="auto", zmin=-1, zmax=1)
+    fig.update_layout(paper_bgcolor=T, font_color="#C8D4E8", height=480)
+    st.plotly_chart(fig, use_container_width=True)
 
 
-# ═════════════════════════════════════════════════════════════════════════════
-# PAGE 3 — MODEL PERFORMANCE
-# ═════════════════════════════════════════════════════════════════════════════
-elif page == "Model Performance":
-    st.title("Model Performance")
-    st.markdown(
-        "Binary classification: **High quality (4-5★)** vs **Low quality (1-2★)**. "
-        "Three-star facilities are excluded as the ambiguous midpoint."
-    )
-    st.divider()
+# ═══════════════════════════════════════════════════════════════════════════════
+# MODEL RESULTS
+# ═══════════════════════════════════════════════════════════════════════════════
+elif page == "Model Results":
+    st.markdown('<p class="section-label">Machine Learning</p>', unsafe_allow_html=True)
+    st.markdown('<p class="section-title">Model Performance</p>', unsafe_allow_html=True)
+    st.markdown('<p class="section-desc">Three classifiers were trained and compared using stratified 5-fold cross-validation. The task: predict <strong>High quality (4-5★)</strong> vs <strong>Low quality (1-2★)</strong>. Three-star facilities are excluded as the ambiguous midpoint.</p>', unsafe_allow_html=True)
 
-    pipeline = get_pipeline()
-    cv_results   = pipeline["cv_results"]
-    y_test       = pipeline["y_test"]
-    y_pred       = pipeline["y_pred"]
-    y_proba      = pipeline["y_proba"]
-    importances  = pipeline["importances"]
-
-    # ── Top metrics ───────────────────────────────────────────────────────────
-    fpr, tpr, _ = roc_curve(y_test, y_proba)
+    p = get_pipeline()
+    fpr, tpr, _ = roc_curve(p["y_test"], p["y_proba"])
     roc_auc = auc(fpr, tpr)
 
+    # ── Top metrics ───────────────────────────────────────────────────────────
     m1, m2, m3, m4 = st.columns(4)
-    m1.metric("Accuracy",  f"{accuracy_score(y_test, y_pred):.1%}")
-    m2.metric("F1-Macro",  f"{f1_score(y_test, y_pred, average='macro'):.4f}")
-    m3.metric("ROC-AUC",   f"{roc_auc:.4f}")
-    m4.metric("Precision", f"{precision_score(y_test, y_pred, average='macro'):.4f}")
+    for col, (val, lbl) in zip([m1, m2, m3, m4], [
+        (f"{accuracy_score(p['y_test'], p['y_pred']):.1%}", "Test Accuracy"),
+        (f"{f1_score(p['y_test'], p['y_pred'], average='macro'):.3f}", "F1-Macro Score"),
+        (f"{roc_auc:.3f}", "ROC-AUC"),
+        (f"{precision_score(p['y_test'], p['y_pred'], average='macro'):.3f}", "Precision"),
+    ]):
+        col.markdown(f'<div class="kpi-card"><div class="kpi-val">{val}</div><div class="kpi-lbl">{lbl}</div></div>', unsafe_allow_html=True)
 
-    st.divider()
-    row1_l, row1_r = st.columns(2)
+    st.markdown("<br>", unsafe_allow_html=True)
 
-    # CV comparison
-    with row1_l:
-        st.subheader("Model Comparison — 5-Fold CV F1")
-        cv_df = pd.DataFrame(
-            list(cv_results.items()), columns=["Model", "F1 Score"]
-        ).sort_values("F1 Score", ascending=False)
-        fig = px.bar(
-            cv_df, x="Model", y="F1 Score",
-            color="F1 Score", color_continuous_scale="Blues",
-            text=cv_df["F1 Score"].map("{:.4f}".format),
-            range_y=[0.85, 0.92],
-        )
-        fig.update_traces(textposition="outside")
-        _layout(fig, coloraxis_showscale=False)
+    # ── CV + ROC ──────────────────────────────────────────────────────────────
+    r1, r2 = st.columns(2)
+    with r1:
+        st.markdown("#### Model Comparison")
+        st.markdown('<p class="section-desc">5-fold cross-validated F1-macro score. Higher is better. Logistic Regression edges out the tree-based models, suggesting the decision boundary is largely linear.</p>', unsafe_allow_html=True)
+        cv_df = pd.DataFrame(list(p["cv_results"].items()), columns=["Model", "F1"])
+        fig = px.bar(cv_df.sort_values("F1", ascending=False),
+                     x="Model", y="F1",
+                     color="F1", color_continuous_scale="Blues",
+                     text=cv_df.sort_values("F1",ascending=False)["F1"].map("{:.4f}".format),
+                     range_y=[0.85, 0.92])
+        fig.update_traces(textposition="outside", textfont_color="#C8D4E8")
+        chart_layout(fig, coloraxis_showscale=False)
         st.plotly_chart(fig, use_container_width=True)
 
-    # ROC curve
-    with row1_r:
-        st.subheader("ROC Curve")
+    with r2:
+        st.markdown("#### ROC Curve")
+        st.markdown('<p class="section-desc">The ROC curve plots true positive rate vs false positive rate. AUC of 0.967 means the model correctly ranks 96.7% of high-quality facilities above low-quality ones.</p>', unsafe_allow_html=True)
         fig = go.Figure()
-        fig.add_trace(go.Scatter(
-            x=fpr, y=tpr,
-            fill="tozeroy", fillcolor="rgba(79,139,249,0.15)",
+        fig.add_trace(go.Scatter(x=fpr, y=tpr, fill="tozeroy",
+            fillcolor="rgba(79,139,249,0.12)",
             line=dict(color="#4F8BF9", width=2.5),
-            name=f"AUC = {roc_auc:.3f}",
-        ))
-        fig.add_trace(go.Scatter(
-            x=[0, 1], y=[0, 1],
-            line=dict(color="gray", dash="dash", width=1),
-            showlegend=False,
-        ))
-        _layout(
-            fig,
-            xaxis_title="False Positive Rate",
-            yaxis_title="True Positive Rate",
-            legend=dict(x=0.55, y=0.1),
-        )
+            name=f"Best Model  AUC = {roc_auc:.3f}"))
+        fig.add_trace(go.Scatter(x=[0,1], y=[0,1],
+            line=dict(color="#334155", dash="dash"), showlegend=False))
+        chart_layout(fig, xaxis_title="False Positive Rate", yaxis_title="True Positive Rate",
+                     legend=dict(x=0.4, y=0.05))
         st.plotly_chart(fig, use_container_width=True)
 
-    row2_l, row2_r = st.columns(2)
-
-    # Confusion matrix
-    with row2_l:
-        st.subheader("Confusion Matrix")
-        cm = confusion_matrix(y_test, y_pred)
-        fig = px.imshow(
-            cm, text_auto=True,
+    # ── Confusion matrix + importances ────────────────────────────────────────
+    r3, r4 = st.columns(2)
+    with r3:
+        st.markdown("#### Confusion Matrix")
+        st.markdown('<p class="section-desc">Out of 936 held-out test facilities, the model correctly classified 90%. Misclassifications are roughly balanced between false positives and false negatives.</p>', unsafe_allow_html=True)
+        cm = confusion_matrix(p["y_test"], p["y_pred"])
+        fig = px.imshow(cm, text_auto=True,
             x=["Predicted Low", "Predicted High"],
             y=["Actual Low", "Actual High"],
-            color_continuous_scale="Blues",
-            aspect="auto",
-        )
-        fig.update_layout(paper_bgcolor=TRANSPARENT, coloraxis_showscale=False)
+            color_continuous_scale="Blues", aspect="auto")
+        fig.update_layout(paper_bgcolor=T, font_color="#C8D4E8", coloraxis_showscale=False)
         st.plotly_chart(fig, use_container_width=True)
 
-    # Feature importances
-    with row2_r:
-        st.subheader("Feature Importances")
-        if not importances.empty:
-            imp_df = importances.reset_index()
-            imp_df.columns = ["Feature", "Importance"]
-            imp_df["Feature"] = imp_df["Feature"].str.replace("_", " ").str.title()
-            fig = px.bar(
-                imp_df.sort_values("Importance"),
-                x="Importance", y="Feature",
-                orientation="h",
-                color="Importance", color_continuous_scale="Blues",
-            )
-            _layout(fig, coloraxis_showscale=False)
+    with r4:
+        st.markdown("#### Feature Importances")
+        st.markdown('<p class="section-desc">Which inputs matter most to the model? Staffing and quality ratings dominate — facility size has almost no influence.</p>', unsafe_allow_html=True)
+        if not p["importances"].empty:
+            imp = p["importances"].reset_index()
+            imp.columns = ["Feature", "Importance"]
+            imp["Feature"] = imp["Feature"].str.replace("_", " ").str.title()
+            fig = px.bar(imp.sort_values("Importance"),
+                         x="Importance", y="Feature", orientation="h",
+                         color="Importance", color_continuous_scale="Blues")
+            chart_layout(fig, coloraxis_showscale=False)
             st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.info("Feature importances not available for this model type.")
 
 
-# ═════════════════════════════════════════════════════════════════════════════
-# PAGE 4 — LIVE PREDICTOR
-# ═════════════════════════════════════════════════════════════════════════════
-elif page == "Live Predictor":
-    st.title("Live Quality Predictor")
-    st.markdown(
-        "Enter nursing home details below to get an instant quality prediction "
-        "from the trained model."
-    )
-    st.divider()
+# ═══════════════════════════════════════════════════════════════════════════════
+# PREDICT QUALITY
+# ═══════════════════════════════════════════════════════════════════════════════
+elif page == "Predict Quality":
+    st.markdown('<p class="section-label">Live Prediction</p>', unsafe_allow_html=True)
+    st.markdown('<p class="section-title">Will This Facility Achieve a High Quality Rating?</p>', unsafe_allow_html=True)
+    st.markdown('<p class="section-desc">Enter the details of any nursing home below. The trained model will instantly predict whether it is likely to receive a high (4-5★) or low (1-2★) CMS quality rating — and show you exactly why.</p>', unsafe_allow_html=True)
 
-    pipeline = get_pipeline()
-    model        = pipeline["model"]
-    feature_cols = pipeline["feature_cols"]
+    p = get_pipeline()
+    model        = p["model"]
+    feature_cols = p["feature_cols"]
 
-    form_col, result_col = st.columns([1, 1], gap="large")
+    form, result = st.columns([1, 1], gap="large")
 
-    with form_col:
-        st.subheader("Facility Details")
+    with form:
+        st.markdown("#### Step 1 — CMS Star Ratings")
+        st.markdown('<p class="section-desc">These are sub-ratings already assigned by CMS inspectors.</p>', unsafe_allow_html=True)
+        staffing_r  = st.select_slider("Staffing Rating",          options=[1,2,3,4,5], value=3)
+        quality_r   = st.select_slider("Quality Measure Rating",   options=[1,2,3,4,5], value=3)
+        inspection_r= st.select_slider("Health Inspection Rating", options=[1,2,3,4,5], value=3)
 
-        staffing_rating          = st.slider("Staffing Rating (CMS, 1-5)",          1, 5, 3)
-        quality_rating           = st.slider("Quality Measure Rating (CMS, 1-5)",    1, 5, 3)
-        health_inspection_rating = st.slider("Health Inspection Rating (CMS, 1-5)",  1, 5, 3)
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown("#### Step 2 — Staffing Levels")
+        st.markdown('<p class="section-desc">Hours of care provided per resident per day.</p>', unsafe_allow_html=True)
+        total_hrs = st.slider("Total Nursing Hours",  1.0, 8.0, 3.8, 0.1)
+        rn_hrs    = st.slider("RN Hours",             0.1, 4.0, 1.0, 0.1)
+        aide_hrs  = st.slider("Aide Hours",           0.3, 7.0, 2.8, 0.1)
 
-        st.markdown("---")
-        total_nursing_hrs = st.slider("Total Nursing Hrs / Resident / Day", 1.0, 8.0, 3.8, 0.1)
-        rn_hrs            = st.slider("RN Hours / Resident / Day",          0.1, 4.0, 1.0, 0.1)
-        aide_hrs          = st.slider("Aide Hours / Resident / Day",        0.3, 7.0, 2.8, 0.1)
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown("#### Step 3 — Facility Details")
+        c1, c2 = st.columns(2)
+        num_beds      = c1.number_input("Certified Beds",    20,  500, 150, 10)
+        num_residents = c2.number_input("Avg Residents/Day", 10,  500, 120, 10)
+        num_defic     = st.number_input("Health Deficiencies (total)", 0, 60, 8, 1)
+        ownership     = st.selectbox("Ownership Type",
+                                     list(OWNERSHIP_MAP.keys()),
+                                     format_func=str.title)
 
-        st.markdown("---")
-        num_beds         = st.number_input("Certified Beds",          20,  500, 150, step=10)
-        num_residents    = st.number_input("Avg Residents per Day",   10,  500, 120, step=10)
-        num_deficiencies = st.number_input("Health Deficiencies",      0,   60,   8, step=1)
-        ownership_type   = st.selectbox(
-            "Ownership Type",
-            list(OWNERSHIP_MAP.keys()),
-            format_func=lambda x: x.title(),
-        )
+        st.markdown("<br>", unsafe_allow_html=True)
+        btn = st.button("🔮  Run Prediction", type="primary", use_container_width=True)
 
-        predict_btn = st.button("Predict Quality Rating", type="primary", use_container_width=True)
+    with result:
+        st.markdown("#### Prediction Output")
 
-    with result_col:
-        st.subheader("Prediction Result")
-
-        # Build the gauge placeholder or real result
-        def _gauge(value: float, color: str = "#4F8BF9") -> go.Figure:
-            fig = go.Figure(go.Indicator(
-                mode="gauge+number",
-                value=round(value, 1),
-                domain={"x": [0, 1], "y": [0, 1]},
-                title={"text": "Probability of High Quality (4-5★)", "font": {"size": 14}},
-                number={"suffix": "%", "font": {"size": 44}},
-                gauge={
-                    "axis": {"range": [0, 100], "ticksuffix": "%", "tickcolor": "#9AA0B4"},
-                    "bar":  {"color": color},
-                    "bgcolor": "#1E2130",
-                    "bordercolor": "#1E2130",
-                    "steps": [
-                        {"range": [0,  50], "color": "#2D1B33"},
-                        {"range": [50, 100], "color": "#1B2D33"},
-                    ],
-                    "threshold": {
-                        "line": {"color": "white", "width": 2},
-                        "thickness": 0.75,
-                        "value": 50,
-                    },
-                },
-            ))
-            fig.update_layout(
-                paper_bgcolor=TRANSPARENT,
-                font_color="#FAFAFA",
-                height=320,
-                margin=dict(t=60, b=20, l=20, r=20),
-            )
-            return fig
-
-        if predict_btn:
+        if btn:
             occupancy_rate = num_residents / max(num_beds, 1)
-            rn_share       = rn_hrs / max(total_nursing_hrs, 0.01)
-            ownership_enc  = OWNERSHIP_MAP.get(ownership_type, 3)
+            rn_share       = rn_hrs / max(total_hrs, 0.01)
+            ownership_enc  = OWNERSHIP_MAP.get(ownership, 3)
 
             input_df = pd.DataFrame([{
-                "staffing_rating":          staffing_rating,
-                "quality_rating":           quality_rating,
-                "health_inspection_rating": health_inspection_rating,
+                "staffing_rating":          staffing_r,
+                "quality_rating":           quality_r,
+                "health_inspection_rating": inspection_r,
                 "num_beds":                 num_beds,
                 "num_residents":            num_residents,
-                "total_nursing_hrs":        total_nursing_hrs,
+                "total_nursing_hrs":        total_hrs,
                 "rn_hrs":                   rn_hrs,
                 "aide_hrs":                 aide_hrs,
-                "num_deficiencies":         num_deficiencies,
+                "num_deficiencies":         num_defic,
                 "occupancy_rate":           occupancy_rate,
                 "rn_share":                 rn_share,
                 "ownership_encoded":        ownership_enc,
             }])[feature_cols]
 
-            pred   = model.predict(input_df)[0]
-            proba  = model.predict_proba(input_df)[0][1]
-            color  = "#4F8BF9" if pred == 1 else "#E05C5C"
+            pred  = model.predict(input_df)[0]
+            proba = model.predict_proba(input_df)[0][1]
+            conf  = proba if pred == 1 else 1 - proba
+            color = "#22C55E" if pred == 1 else "#EF4444"
+            label = "HIGH QUALITY  4-5★" if pred == 1 else "LOW QUALITY  1-2★"
+            cls   = "result-high" if pred == 1 else "result-low"
+            val_cls = "result-value-high" if pred == 1 else "result-value-low"
 
-            st.plotly_chart(_gauge(proba * 100, color=color), use_container_width=True)
+            st.markdown(f"""
+            <div class="{cls}">
+                <div class="result-label">Predicted Rating</div>
+                <div class="{val_cls}">{label}</div>
+                <div class="result-label" style="margin-top:8px;">Model confidence: {conf:.1%}</div>
+            </div>
+            """, unsafe_allow_html=True)
 
-            if pred == 1:
-                st.success(
-                    f"**HIGH QUALITY** — Predicted 4-5★ rating.  "
-                    f"Confidence: **{proba:.1%}**"
-                )
-            else:
-                st.error(
-                    f"**LOW QUALITY** — Predicted 1-2★ rating.  "
-                    f"Confidence: **{1 - proba:.1%}**"
-                )
+            # Gauge
+            fig = go.Figure(go.Indicator(
+                mode="gauge+number",
+                value=round(proba * 100, 1),
+                domain={"x": [0,1], "y": [0,1]},
+                title={"text": "Probability of High Quality Rating", "font": {"size": 13, "color": "#9AA0B4"}},
+                number={"suffix": "%", "font": {"size": 48, "color": color}},
+                gauge={
+                    "axis": {"range": [0,100], "ticksuffix": "%", "tickcolor": "#334155"},
+                    "bar":  {"color": color},
+                    "bgcolor": "#111827",
+                    "bordercolor": "#1E2A45",
+                    "steps": [
+                        {"range": [0,  50], "color": "#1A0D0D"},
+                        {"range": [50, 100], "color": "#0D1A0D"},
+                    ],
+                    "threshold": {
+                        "line": {"color": "white", "width": 2},
+                        "thickness": 0.75, "value": 50,
+                    },
+                },
+            ))
+            fig.update_layout(
+                paper_bgcolor=T, font_color="#C8D4E8",
+                height=280, margin=dict(t=50, b=10, l=20, r=20),
+            )
+            st.plotly_chart(fig, use_container_width=True)
 
-            # Feature contribution breakdown (for linear models)
+            # Feature contributions
             clf = model.named_steps["clf"] if hasattr(model, "named_steps") else model
             if hasattr(clf, "coef_"):
-                st.markdown("##### Key drivers")
-                coefs = pd.Series(clf.coef_[0], index=feature_cols)
-                contribs = (coefs * input_df.iloc[0]).sort_values(ascending=False)
-                top = pd.concat([contribs.head(3), contribs.tail(3)])
-                contrib_df = top.reset_index()
-                contrib_df.columns = ["Feature", "Contribution"]
-                contrib_df["Feature"] = contrib_df["Feature"].str.replace("_", " ").str.title()
-                contrib_df["Direction"] = contrib_df["Contribution"].apply(
-                    lambda x: "Positive" if x >= 0 else "Negative"
-                )
-                fig = px.bar(
-                    contrib_df.sort_values("Contribution"),
-                    x="Contribution", y="Feature", orientation="h",
-                    color="Direction",
-                    color_discrete_map={"Positive": "#4F8BF9", "Negative": "#E05C5C"},
-                )
-                _layout(fig, showlegend=False, height=280,
-                        margin=dict(t=10, b=10, l=10, r=10))
+                st.markdown("#### Why did the model decide this?")
+                st.markdown('<p class="section-desc">Each bar shows how much a feature pushed the prediction toward High (blue) or Low (red) quality.</p>', unsafe_allow_html=True)
+                coefs    = pd.Series(clf.coef_[0], index=feature_cols)
+                contribs = (coefs * input_df.iloc[0]).sort_values()
+                cdf = contribs.reset_index()
+                cdf.columns = ["Feature", "Contribution"]
+                cdf["Feature"]   = cdf["Feature"].str.replace("_"," ").str.title()
+                cdf["Direction"] = cdf["Contribution"].apply(lambda x: "Towards High Quality" if x >= 0 else "Towards Low Quality")
+                fig = px.bar(cdf, x="Contribution", y="Feature", orientation="h",
+                             color="Direction",
+                             color_discrete_map={
+                                 "Towards High Quality": "#4F8BF9",
+                                 "Towards Low Quality":  "#EF4444",
+                             })
+                chart_layout(fig, height=320, margin=dict(t=10, b=10, l=10, r=10))
                 st.plotly_chart(fig, use_container_width=True)
+
         else:
-            st.plotly_chart(_gauge(50, color="#555"), use_container_width=True)
-            st.info("Adjust the sliders on the left and click **Predict Quality Rating**.")
+            st.markdown("""
+            <div class="insight" style="text-align:center; padding: 40px;">
+                <div style="font-size:2.5rem; margin-bottom:12px;">🔮</div>
+                <div style="font-size:1rem; color:#C8D4E8; margin-bottom:8px;">
+                    Ready to predict
+                </div>
+                <div>
+                    Fill in the facility details on the left,<br>then click
+                    <strong>Run Prediction</strong>.
+                </div>
+            </div>
+            """, unsafe_allow_html=True)

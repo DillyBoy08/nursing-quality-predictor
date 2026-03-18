@@ -212,9 +212,10 @@ if page == "Overview":
         fig.update_yaxes(title="Number of Facilities")
         chart(fig,
               title="Overall Star Rating Distribution",
-              subtitle="How facilities are distributed across CMS's 1–5 star scale",
+              subtitle="How facilities are distributed across CMS's 1-5 star scale",
               coloraxis_showscale=False)
         st.plotly_chart(fig, use_container_width=True)
+        st.caption("CMS assigns each nursing home an overall star rating from 1 (much below average) to 5 (much above average). This chart shows how the filtered facilities spread across those ratings. A large share of 1-2 star facilities in a region is a red flag for care quality.")
 
     with c2:
         fig = px.scatter(
@@ -237,6 +238,7 @@ if page == "Overview":
               subtitle="Each dot is one facility. Colour shows star rating.",
               coloraxis_colorbar=dict(title="Stars", thickness=12, len=0.6))
         st.plotly_chart(fig, use_container_width=True)
+        st.caption("Facilities with more nursing hours per resident per day tend to have fewer health deficiencies. Each point is one facility. Darker blue = higher rated. Hover over any point for details.")
 
     # Row 2
     c3, c4 = st.columns(2)
@@ -261,6 +263,7 @@ if page == "Overview":
               title="Average Health Deficiencies by Star Rating",
               subtitle="Error bars show standard error. Lower deficiencies correlate with higher ratings.")
         st.plotly_chart(fig, use_container_width=True)
+        st.caption("Health deficiencies are violations found during state inspections (e.g. medication errors, inadequate hygiene, staffing gaps). This confirms that CMS star ratings reflect real inspection outcomes: 1-star homes average nearly three times as many deficiencies as 5-star homes.")
 
     with c4:
         own_rating = (
@@ -284,6 +287,7 @@ if page == "Overview":
               subtitle="For-profit facilities dominate but differ in quality spread",
               show_legend=True)
         st.plotly_chart(fig, use_container_width=True)
+        st.caption("About 65% of U.S. nursing homes are for-profit corporations. This chart shows whether ownership type affects the rating spread. Non-profit and government facilities tend to have a higher proportion of 4-5 star ratings in the real data.")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -350,6 +354,7 @@ elif page == "Data Analysis":
                   subtitle="Histogram with box plot showing median and spread",
                   height=320)
         st.plotly_chart(fig, use_container_width=True)
+        st.caption(f"Distribution of {feat_label} across the selected facilities. The shape of the histogram tells you where most facilities cluster and whether the data is skewed.")
 
     with dh2:
         fig = px.violin(adf, x="overall_rating", y=sel_feat,
@@ -365,6 +370,7 @@ elif page == "Data Analysis":
               subtitle="Violin shows full distribution shape; box shows median and IQR",
               show_legend=False, height=320)
         st.plotly_chart(fig, use_container_width=True)
+        st.caption("Each violin shows the full spread of values for that star rating. The wider the shape at a given value, the more facilities land there. The inner box marks the median and interquartile range.")
 
     st.divider()
 
@@ -393,6 +399,7 @@ elif page == "Data Analysis":
             margin=dict(t=72, b=12, l=12, r=12),
         )
         st.plotly_chart(fig, use_container_width=True)
+        st.caption("Each small panel shows the relationship between two features. A diagonal pattern means they move together (positive correlation). A scattered cloud means little or no relationship. Colour shows star rating.")
     else:
         st.info("Select at least 2 features to display the scatter matrix.")
 
@@ -416,6 +423,7 @@ elif page == "Data Analysis":
         margin=dict(t=72, b=12, l=12, r=12),
     )
     st.plotly_chart(fig, use_container_width=True)
+    st.caption("Shows the Pearson correlation between every pair of numeric features. A value of +1 means both metrics rise together. A value of -1 means one rises as the other falls. Values near 0 mean no linear relationship. For example, total nursing hours and RN hours are strongly correlated because RN hours are a subset of total hours.")
 
     st.divider()
 
@@ -438,9 +446,10 @@ elif page == "Data Analysis":
     fig.update_yaxes(autorange="reversed")
     chart(fig,
           title="Outlier Prevalence by Feature (IQR Method)",
-          subtitle="Values beyond Q1 − 1.5×IQR or Q3 + 1.5×IQR are flagged",
+          subtitle="Values beyond Q1 - 1.5xIQR or Q3 + 1.5xIQR are flagged",
           height=300)
     st.plotly_chart(fig, use_container_width=True)
+    st.caption("Outliers are records with unusually extreme values for that metric. A high outlier rate does not necessarily mean bad data — it can reflect real-world extremes like very large facilities or severe understaffing. These records are kept in the dataset but are worth investigating.")
 
     st.divider()
     st.markdown("#### Distribution Summary Table")
@@ -492,6 +501,7 @@ elif page == "Model Performance":
               subtitle="Higher is better. All three models compared on the same data split.",
               show_legend=False)
         st.plotly_chart(fig, use_container_width=True)
+        st.caption("Three different machine learning models were trained and evaluated on the same data using 5-fold cross-validation (the data is split into 5 equal parts; each part is used once as a test set). F1-Macro balances precision and recall across both classes. The top-scoring model is used for all predictions in the app.")
 
     with r2:
         fig = go.Figure()
@@ -527,6 +537,7 @@ elif page == "Model Performance":
               subtitle=f"AUC = {roc_auc:.3f}. The closer to 1.0, the better the model separates the classes.",
               show_legend=True)
         st.plotly_chart(fig, use_container_width=True)
+        st.caption("The ROC curve plots how many true positives the model catches (Y axis) against how many false alarms it raises (X axis) at every possible decision threshold. A perfect model would reach the top-left corner. The red dot marks the threshold that best balances sensitivity and specificity.")
 
     r3, r4 = st.columns(2)
 
@@ -554,6 +565,7 @@ elif page == "Model Performance":
             height=340, margin=dict(t=72, b=12, l=12, r=12),
         )
         st.plotly_chart(fig, use_container_width=True)
+        st.caption("The confusion matrix shows what the model got right and wrong on unseen test data. The diagonal cells are correct predictions. Off-diagonal cells are errors: bottom-left = a low-quality facility predicted as high quality (the more dangerous mistake); top-right = a high-quality facility predicted as low quality.")
 
     with r4:
         if not p["importances"].empty:
@@ -574,6 +586,7 @@ elif page == "Model Performance":
                   subtitle="Which inputs had the most influence on predictions",
                   height=340)
             st.plotly_chart(fig, use_container_width=True)
+            st.caption("Longer bars = that feature had more influence on the model's decisions. Features like staffing rating and number of deficiencies typically dominate because they are directly tied to how CMS calculates the overall star rating.")
 
     st.divider()
 
@@ -597,6 +610,7 @@ elif page == "Model Performance":
           subtitle="Well-separated peaks indicate the model distinguishes the two classes confidently",
           show_legend=True, height=320)
     st.plotly_chart(fig, use_container_width=True)
+    st.caption("This histogram shows the model's predicted probability of being high quality for every facility in the test set, split by actual outcome. Green = actually high quality, red = actually low quality. Well-separated peaks mean the model is confident and accurate. Overlap near 0.5 shows where the model is uncertain.")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -810,9 +824,10 @@ elif page == "Raw Data":
 
     # Filters for the raw table
     st.markdown("#### Browse the Dataset")
+    st.markdown("Use the filters below to explore the underlying records. Every row is one real U.S. nursing facility.")
     rc1, rc2, rc3 = st.columns(3)
     raw_own_opts = ["All"] + sorted(df["ownership_type"].dropna().unique().tolist())
-    raw_own  = rc1.selectbox("Ownership", raw_own_opts, key="raw_own")
+    raw_own  = rc1.selectbox("Ownership type", raw_own_opts, key="raw_own")
     raw_rate = rc2.select_slider("Star rating", options=[1,2,3,4,5], value=(1,5), key="raw_rate")
     n_rows   = rc3.selectbox("Rows to display", [50, 100, 250, 500], index=1)
 
@@ -823,11 +838,19 @@ elif page == "Raw Data":
 
     display_cols = [c for c in col_info.keys() if c in rdf.columns]
     rename_map   = {c: col_info[c][0] for c in display_cols}
-    st.caption(f"Showing {min(n_rows, len(rdf)):,} of {len(rdf):,} matching facilities")
-    st.dataframe(
-        rdf[display_cols].head(n_rows).rename(columns=rename_map),
-        use_container_width=True,
-        hide_index=True,
+
+    matched = len(rdf)
+    st.markdown(f"**{min(n_rows, matched):,} of {matched:,} facilities** match the current filters.")
+
+    table_df = rdf[display_cols].head(n_rows).rename(columns=rename_map).reset_index(drop=True)
+    st.dataframe(table_df, use_container_width=True, height=500)
+
+    csv_bytes = table_df.to_csv(index=False).encode("utf-8")
+    st.download_button(
+        label="Download this selection as CSV",
+        data=csv_bytes,
+        file_name="cms_nursing_homes.csv",
+        mime="text/csv",
     )
 
     st.divider()

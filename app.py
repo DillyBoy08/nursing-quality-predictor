@@ -179,7 +179,9 @@ if page == "Overview":
         fdf["overall_rating"].between(rating_rng[0], rating_rng[1]) &
         fdf["total_nursing_hrs"].between(nursing_rng[0], nursing_rng[1])
     ]
-    st.caption(f"{len(fdf):,} facilities match current filters")
+    c_info, c_link = st.columns([3, 1])
+    c_info.caption(f"{len(fdf):,} facilities match current filters")
+    c_link.caption("To browse every individual record, open **Raw Data** in the left sidebar.")
     st.divider()
 
     # KPIs

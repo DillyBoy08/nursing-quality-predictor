@@ -127,13 +127,15 @@ div[data-testid="stDataFrame"] {{ border: 1px solid {BORDER}; border-radius: 8px
 
 # ── Plotly chart template ─────────────────────────────────────────────────────
 def chart(fig, height=320, legend=False, **kw):
+    # Apply axis defaults first via update_xaxes/update_yaxes to avoid
+    # duplicate keyword conflicts when xaxis/yaxis are passed in **kw
+    fig.update_xaxes(gridcolor=BORDER, linecolor=BORDER, tickcolor=BORDER)
+    fig.update_yaxes(gridcolor=BORDER, linecolor=BORDER, tickcolor=BORDER)
     fig.update_layout(
         plot_bgcolor=T,
         paper_bgcolor=T,
         font=dict(family="Inter", color=TEXT_SEC, size=12),
         title_font=dict(color=TEXT_PRI, size=13),
-        xaxis=dict(gridcolor=BORDER, linecolor=BORDER, tickcolor=BORDER),
-        yaxis=dict(gridcolor=BORDER, linecolor=BORDER, tickcolor=BORDER),
         margin=dict(t=32, b=8, l=8, r=8),
         showlegend=legend,
         height=height,
@@ -229,10 +231,9 @@ if page == "Overview":
                      text=counts["pct"].map("{}%".format),
                      color_discrete_sequence=[ACCENT])
         fig.update_traces(textposition="outside", textfont=dict(color=TEXT_SEC, size=11))
-        chart(fig, xaxis=dict(tickvals=[1,2,3,4,5], gridcolor=BORDER,
-                              linecolor=BORDER, tickcolor=BORDER, title="Star Rating"),
-              yaxis=dict(gridcolor=BORDER, linecolor=BORDER, tickcolor=BORDER,
-                         title="Facilities"))
+        fig.update_xaxes(tickvals=[1,2,3,4,5], title="Star Rating")
+        fig.update_yaxes(title="Facilities")
+        chart(fig)
         st.plotly_chart(fig, use_container_width=True)
 
     with c2:
@@ -257,8 +258,8 @@ if page == "Overview":
                      labels={"overall_rating": "Star Rating",
                              "num_deficiencies": "Avg Health Deficiencies"})
         fig.update_traces(textposition="outside", textfont=dict(color=TEXT_SEC, size=11))
-        chart(fig, xaxis=dict(tickvals=[1,2,3,4,5], gridcolor=BORDER,
-                              linecolor=BORDER, tickcolor=BORDER))
+        fig.update_xaxes(tickvals=[1,2,3,4,5])
+        chart(fig)
         st.plotly_chart(fig, use_container_width=True)
 
     with c4:
@@ -421,8 +422,8 @@ elif page == "Model Performance":
                      color_discrete_sequence=[ACCENT],
                      range_y=[0.85, 0.92])
         fig.update_traces(textposition="outside", textfont=dict(color=TEXT_SEC, size=11))
-        chart(fig, yaxis=dict(title="F1-Macro Score", gridcolor=BORDER,
-                              linecolor=BORDER, tickcolor=BORDER))
+        fig.update_yaxes(title="F1-Macro Score")
+        chart(fig)
         st.plotly_chart(fig, use_container_width=True)
 
     with r2:
@@ -439,12 +440,9 @@ elif page == "Model Performance":
             line=dict(color=BORDER, dash="dash", width=1),
             showlegend=False,
         ))
-        chart(fig, legend=True,
-              xaxis=dict(title="False Positive Rate", gridcolor=BORDER,
-                         linecolor=BORDER, tickcolor=BORDER),
-              yaxis=dict(title="True Positive Rate", gridcolor=BORDER,
-                         linecolor=BORDER, tickcolor=BORDER),
-              legend_font_color=TEXT_SEC)
+        fig.update_xaxes(title="False Positive Rate")
+        fig.update_yaxes(title="True Positive Rate")
+        chart(fig, legend=True)
         st.plotly_chart(fig, use_container_width=True)
 
     r3, r4 = st.columns(2)

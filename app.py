@@ -138,7 +138,7 @@ with st.sidebar:
     """, unsafe_allow_html=True)
 
     page = st.radio("Navigation",
-                    ["Overview", "Data Analysis", "Model Performance", "Predict Quality"],
+                    ["Overview", "Data Analysis", "Model Performance", "Predict Quality", "Raw Data"],
                     label_visibility="collapsed")
     st.divider()
     st.markdown(f"""
@@ -159,7 +159,7 @@ df = load_data()
 if page == "Overview":
     st.markdown('<p class="page-eyebrow">Dashboard</p>', unsafe_allow_html=True)
     st.title("Nursing Home Quality Overview")
-    st.markdown("Real CMS data for U.S. nursing facilities — star ratings, staffing levels, and health deficiencies.")
+    st.markdown("Real CMS data for U.S. nursing facilities covering star ratings, staffing levels, and health deficiencies.")
     st.divider()
 
     # Filters
@@ -234,7 +234,7 @@ if page == "Overview":
         )
         chart(fig,
               title="Staffing Hours vs Health Deficiencies",
-              subtitle="Each dot is one facility — colour shows star rating",
+              subtitle="Each dot is one facility. Colour shows star rating.",
               coloraxis_colorbar=dict(title="Stars", thickness=12, len=0.6))
         st.plotly_chart(fig, use_container_width=True)
 
@@ -259,7 +259,7 @@ if page == "Overview":
         fig.update_yaxes(title="Avg Health Deficiencies")
         chart(fig,
               title="Average Health Deficiencies by Star Rating",
-              subtitle="Error bars show standard error — lower deficiencies correlate with higher ratings")
+              subtitle="Error bars show standard error. Lower deficiencies correlate with higher ratings.")
         st.plotly_chart(fig, use_container_width=True)
 
     with c4:
@@ -294,7 +294,8 @@ elif page == "Data Analysis":
 
     st.markdown('<p class="page-eyebrow">Statistical Analysis</p>', unsafe_allow_html=True)
     st.title("Data Analysis")
-    st.markdown("Explore distributions, outliers, and feature correlations across real CMS nursing facility records.")
+    st.markdown("Explore distributions, outliers, and feature correlations across real CMS nursing facility records."
+)
     st.divider()
 
     NUM_COLS = ["total_nursing_hrs", "rn_hrs", "aide_hrs",
@@ -325,7 +326,7 @@ elif page == "Data Analysis":
                                nbins=40, barmode="overlay", opacity=0.7,
                                color_discrete_sequence=px.colors.sequential.Blues[1:],
                                labels={sel_feat: feat_label, "overall_rating": "Stars"})
-            chart(fig, title=f"{feat_label} — Distribution by Star Rating",
+            chart(fig, title=f"{feat_label}: Distribution by Star Rating",
                   subtitle="Overlapping histograms per rating group",
                   show_legend=True, height=320)
         elif split_by == "Ownership Type":
@@ -335,7 +336,7 @@ elif page == "Data Analysis":
                                nbins=40, barmode="overlay", opacity=0.7,
                                color_discrete_sequence=[ACCENT, ACCENT2, SUCCESS, WARN],
                                labels={sel_feat: feat_label, "ownership_type": "Ownership"})
-            chart(fig, title=f"{feat_label} — Distribution by Ownership Type",
+            chart(fig, title=f"{feat_label}: Distribution by Ownership Type",
                   subtitle="Overlapping histograms per ownership group",
                   show_legend=True, height=320)
         else:
@@ -345,7 +346,7 @@ elif page == "Data Analysis":
             fig.update_traces(
                 hovertemplate=f"{feat_label}: %{{x:.2f}}<br>Count: %{{y}}<extra></extra>"
             )
-            chart(fig, title=f"{feat_label} — Overall Distribution",
+            chart(fig, title=f"{feat_label}: Overall Distribution",
                   subtitle="Histogram with box plot showing median and spread",
                   height=320)
         st.plotly_chart(fig, use_container_width=True)
@@ -360,7 +361,7 @@ elif page == "Data Analysis":
             hovertemplate=f"Rating: %{{x}}★<br>{feat_label}: %{{y:.2f}}<extra></extra>"
         )
         fig.update_xaxes(tickvals=[1,2,3,4,5])
-        chart(fig, title=f"{feat_label} — Spread by Star Rating",
+        chart(fig, title=f"{feat_label}: Spread by Star Rating",
               subtitle="Violin shows full distribution shape; box shows median and IQR",
               show_legend=False, height=320)
         st.plotly_chart(fig, use_container_width=True)
@@ -368,7 +369,7 @@ elif page == "Data Analysis":
     st.divider()
 
     # Scatter matrix
-    st.markdown("#### Feature Relationships — Scatter Matrix")
+    st.markdown("#### Feature Relationships: Scatter Matrix")
     sm_cols = st.multiselect(
         "Select 2–5 features to compare",
         present, default=["total_nursing_hrs", "rn_hrs", "num_deficiencies"],
@@ -380,7 +381,7 @@ elif page == "Data Analysis":
             dimensions=sm_cols, color="overall_rating",
             color_continuous_scale=px.colors.sequential.Blues,
             labels=LABELS, opacity=0.5,
-            title="<b>Scatter Matrix — Pairwise Feature Relationships</b><br>"
+            title="<b>Scatter Matrix: Pairwise Feature Relationships</b><br>"
                   "<span style='font-size:11px;font-weight:400;color:#64748B'>"
                   "Each panel shows the relationship between two features, coloured by star rating</span>",
         )
@@ -408,7 +409,7 @@ elif page == "Data Analysis":
         title=dict(
             text="<b>Feature Correlation Matrix</b><br>"
                  "<span style='font-size:11px;font-weight:400;color:#64748B'>"
-                 "Pearson correlation coefficients — red = negative, blue = positive</span>",
+                 "Pearson correlation coefficients. Red = negative, blue = positive.</span>",
             font=dict(size=13, color=TEXT_PRI, family="Inter"), x=0, xanchor="left",
         ),
         paper_bgcolor=T, font_color=TEXT_SEC, height=480,
@@ -436,7 +437,7 @@ elif page == "Data Analysis":
     fig.update_xaxes(title="% of Records Flagged as Outlier")
     fig.update_yaxes(autorange="reversed")
     chart(fig,
-          title="Outlier Prevalence by Feature — IQR Method",
+          title="Outlier Prevalence by Feature (IQR Method)",
           subtitle="Values beyond Q1 − 1.5×IQR or Q3 + 1.5×IQR are flagged",
           height=300)
     st.plotly_chart(fig, use_container_width=True)
@@ -456,7 +457,7 @@ elif page == "Data Analysis":
 elif page == "Model Performance":
     st.markdown('<p class="page-eyebrow">Machine Learning</p>', unsafe_allow_html=True)
     st.title("Model Performance")
-    st.markdown("Binary classification — **High quality (4-5★)** vs **Low quality (1-2★)**. Three-star facilities excluded. Stratified 5-fold cross-validation.")
+    st.markdown("Binary classification: **High quality (4-5 stars)** vs **Low quality (1-2 stars)**. Three-star facilities excluded. Stratified 5-fold cross-validation.")
     st.divider()
 
     p = get_pipeline()
@@ -487,7 +488,7 @@ elif page == "Model Performance":
         )
         fig.update_yaxes(title="F1-Macro Score")
         chart(fig,
-              title="Model Comparison — 5-Fold Cross-Validation F1-Macro",
+              title="Model Comparison: 5-Fold Cross-Validation F1-Macro",
               subtitle="Higher is better. All three models compared on the same data split.",
               show_legend=False)
         st.plotly_chart(fig, use_container_width=True)
@@ -522,8 +523,8 @@ elif page == "Model Performance":
         fig.update_yaxes(title="True Positive Rate")
         fig.update_layout(legend=dict(x=0.5, y=0.05, font=dict(size=11)))
         chart(fig,
-              title="ROC Curve — Receiver Operating Characteristic",
-              subtitle=f"AUC = {roc_auc:.3f} — the closer to 1.0, the better the model separates the classes",
+              title="ROC Curve (Receiver Operating Characteristic)",
+              subtitle=f"AUC = {roc_auc:.3f}. The closer to 1.0, the better the model separates the classes.",
               show_legend=True)
         st.plotly_chart(fig, use_container_width=True)
 
@@ -569,7 +570,7 @@ elif page == "Model Performance":
                 hovertemplate="%{y}<br>Importance: %{x:.4f}<extra></extra>",
             ))
             chart(fig,
-                  title="Feature Importances — Best Model",
+                  title="Feature Importances: Best Model",
                   subtitle="Which inputs had the most influence on predictions",
                   height=340)
             st.plotly_chart(fig, use_container_width=True)
@@ -604,7 +605,8 @@ elif page == "Model Performance":
 elif page == "Predict Quality":
     st.markdown('<p class="page-eyebrow">Live Prediction</p>', unsafe_allow_html=True)
     st.title("Predict Facility Quality Rating")
-    st.markdown("Configure a facility's parameters to get an instant quality prediction from the trained model.")
+    st.markdown("Configure a facility's parameters to get an instant quality prediction from the trained model."
+)
     st.divider()
 
     p            = get_pipeline()
@@ -658,7 +660,7 @@ elif page == "Predict Quality":
             proba = model.predict_proba(input_df)[0][1]
             conf  = proba if pred == 1 else 1 - proba
             color = SUCCESS if pred == 1 else DANGER
-            label = "High Quality — 4 to 5 Stars" if pred == 1 else "Low Quality — 1 to 2 Stars"
+            label = "High Quality (4 to 5 Stars)" if pred == 1 else "Low Quality (1 to 2 Stars)"
             bg    = "rgba(16,185,129,0.06)" if pred == 1 else "rgba(239,68,68,0.06)"
 
             st.markdown(f"""
@@ -712,7 +714,7 @@ elif page == "Predict Quality":
                 fig.add_vline(x=0, line_color=BORDER, line_width=1.5)
                 chart(fig,
                       title="Feature Contributions to This Prediction",
-                      subtitle="Blue = pushed toward High Quality  |  Red = pushed toward Low Quality",
+                      subtitle="Green bars pushed the prediction toward High Quality. Red bars pushed it toward Low Quality.",
                       height=320, margin=dict(t=64, b=8, l=8, r=56))
                 st.plotly_chart(fig, use_container_width=True)
 
@@ -746,3 +748,95 @@ elif page == "Predict Quality":
                 </p>
             </div>
             """, unsafe_allow_html=True)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# RAW DATA
+# ══════════════════════════════════════════════════════════════════════════════
+elif page == "Raw Data":
+    st.markdown('<p class="page-eyebrow">Data Source</p>', unsafe_allow_html=True)
+    st.title("Raw CMS Nursing Home Data")
+    st.markdown(
+        "This dataset is downloaded live from the **Centers for Medicare and Medicaid Services (CMS)** "
+        "Nursing Home Compare public database. It is updated monthly and covers approximately 14,700 "
+        "certified nursing facilities across the United States."
+    )
+
+    st.markdown(f"""
+    <div style="background:{SURFACE};border:1px solid {BORDER};border-left:4px solid {ACCENT};
+                border-radius:8px;padding:16px 20px;margin:12px 0 24px 0;">
+        <p style="font-size:0.72rem;font-weight:600;color:{ACCENT};text-transform:uppercase;
+                   letter-spacing:0.8px;margin:0 0 6px 0;">Official Data Source</p>
+        <p style="color:{TEXT_PRI};font-weight:600;font-size:0.9rem;margin:0 0 4px 0;">
+            CMS Nursing Home Compare — Provider Information
+        </p>
+        <p style="color:{TEXT_SEC};font-size:0.8rem;margin:0 0 8px 0;">
+            Published by the U.S. Department of Health and Human Services.
+            Data includes star ratings, staffing hours, health inspection results,
+            and ownership type for every Medicare/Medicaid certified nursing facility.
+        </p>
+        <p style="color:{TEXT_SEC};font-size:0.75rem;margin:0;">
+            Dataset ID: 4pq5-n9py &nbsp;&nbsp;|&nbsp;&nbsp;
+            Portal: data.cms.gov &nbsp;&nbsp;|&nbsp;&nbsp;
+            Updated: monthly
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.divider()
+
+    # Column reference
+    col_info = {
+        "overall_rating":           ("Overall Rating",              "CMS composite star rating (1 to 5)"),
+        "staffing_rating":          ("Staffing Rating",             "Star rating based on staffing hours relative to case mix"),
+        "quality_rating":           ("Quality Measure Rating",      "Star rating based on resident outcomes and quality measures"),
+        "health_inspection_rating": ("Health Inspection Rating",    "Star rating based on state health inspection results"),
+        "num_beds":                 ("Number of Certified Beds",    "Total licensed beds in the facility"),
+        "num_residents":            ("Avg Residents per Day",       "Average daily census (occupied beds)"),
+        "total_nursing_hrs":        ("Total Nursing Hours/Day",     "Reported total nurse staffing hours per resident per day"),
+        "rn_hrs":                   ("RN Hours/Day",                "Registered nurse hours per resident per day"),
+        "aide_hrs":                 ("Aide Hours/Day",              "Nurse aide hours per resident per day"),
+        "num_deficiencies":         ("Health Deficiencies",         "Total deficiencies cited in the most recent inspection cycle"),
+        "ownership_type":           ("Ownership Type",              "For-profit, non-profit, or government"),
+    }
+    ref_df = pd.DataFrame(
+        [(col, info[0], info[1]) for col, info in col_info.items()],
+        columns=["Column Name", "CMS Field", "Description"],
+    )
+    st.markdown("#### Column Reference")
+    st.dataframe(ref_df, use_container_width=True, hide_index=True)
+
+    st.divider()
+
+    # Filters for the raw table
+    st.markdown("#### Browse the Dataset")
+    rc1, rc2, rc3 = st.columns(3)
+    raw_own_opts = ["All"] + sorted(df["ownership_type"].dropna().unique().tolist())
+    raw_own  = rc1.selectbox("Ownership", raw_own_opts, key="raw_own")
+    raw_rate = rc2.select_slider("Star rating", options=[1,2,3,4,5], value=(1,5), key="raw_rate")
+    n_rows   = rc3.selectbox("Rows to display", [50, 100, 250, 500], index=1)
+
+    rdf = df.copy()
+    if raw_own != "All":
+        rdf = rdf[rdf["ownership_type"] == raw_own]
+    rdf = rdf[rdf["overall_rating"].between(raw_rate[0], raw_rate[1])]
+
+    display_cols = [c for c in col_info.keys() if c in rdf.columns]
+    rename_map   = {c: col_info[c][0] for c in display_cols}
+    st.caption(f"Showing {min(n_rows, len(rdf)):,} of {len(rdf):,} matching facilities")
+    st.dataframe(
+        rdf[display_cols].head(n_rows).rename(columns=rename_map),
+        use_container_width=True,
+        hide_index=True,
+    )
+
+    st.divider()
+    st.markdown(f"""
+    <p style="font-size:0.75rem;color:{TEXT_SEC};">
+        Data downloaded from
+        <code>data.cms.gov/provider-data/dataset/4pq5-n9py</code> via the CMS public API.
+        No modifications are made to the source values — only null handling and type coercion
+        are applied during ingestion. See <code>src/ingestion.py</code> and <code>src/cleaning.py</code>
+        for the full pipeline.
+    </p>
+    """, unsafe_allow_html=True)
